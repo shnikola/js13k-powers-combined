@@ -37,7 +37,8 @@ var pressedKeys = {};
 
 // User 
 var particles = [];
-var waterMarker = null;
+var waterMaker = null;
+var fireMaker = null;
 
 function init() {
   canvas = document.getElementById("canvas");
@@ -46,8 +47,8 @@ function init() {
   canvas.width = world.width;
 	canvas.height = world.height;
   
-  waterMarker = new WaterMarker();
-  
+  waterMaker = new WaterMaker();
+  fireMaker = new FireMaker();
 	document.addEventListener('mousemove', documentMouseMoveHandler, false);
 	document.addEventListener('mousedown', documentMouseDownHandler, false);
 	document.addEventListener('mouseup', documentMouseUpHandler, false);
@@ -65,7 +66,7 @@ function init() {
 	
 	function documentMouseUpHandler(event) {
 		mouse.pressed = false;
-    console.log("M: ", waterMarker.position.x, waterMarker.position.y);
+    console.log("M: ", mouse.x, mouse.y);
 	}
   
 	function documentKeyDownHandler(event) {
@@ -88,14 +89,18 @@ function animate() {
 	// Clear the canvas of all old pixel data
 	context.clearRect(0, 0, canvas.width, canvas.height);
   
-  // Water marker
-  waterMarker.updatePosition();
-	waterMarker.draw();
+  // Water maker
+  waterMaker.updatePosition();
+	waterMaker.draw();
 
   if (mouse.pressed) {
-    waterMarker.shoot();
+    waterMaker.shoot();
   }
-
+  
+  // Fire maker
+  fireMaker.updatePosition();
+  fireMaker.draw();
+  
   // Particles
   for (var i = 0; i < particles.length; i++) {
     particles[i].updatePosition();
@@ -124,6 +129,8 @@ Point.prototype.clonePosition = function() {
 	return { x: this.position.x, y: this.position.y };
 };
 
+// ================ WATER ================
+
 function WaterParticle() {
 	this.position = { x: 0, y: 0 };
 }
@@ -138,20 +145,19 @@ WaterParticle.prototype.draw = function() {
   context.fillRect(this.position.x, this.position.y, 5, 5);
 }
 
-// Water marker
 
-function WaterMarker() {
+function WaterMaker() {
 	this.position = { x: world.width * Math.random(), y: world.height };
 	this.velocity = 0;
   this.direction = {x: 0, y: -1};
   this.rotation = 1;
   this.rotationSet = false;
-	this.size = 6;
+	this.size = 20;
 	this.topSpeed = 90;
-  this.sensorRadius = 220;
+  this.sensorRadius = 180;
 }
-WaterMarker.prototype = new Point();
-WaterMarker.prototype.updatePosition = function() {
+WaterMaker.prototype = new Point();
+WaterMaker.prototype.updatePosition = function() {
   var movement = this.velocity;
   while (movement > 0) {
     movement = this.move(movement);
@@ -159,17 +165,18 @@ WaterMarker.prototype.updatePosition = function() {
   var md = this.distanceTo(mouse);
   if (md < this.sensorRadius) {
     if (!this.rotationSet) { this.rotation = Math.sign(Math.random() - 0.5); this.rotationSet = true }
-    this.velocity = (1 - md / this.sensorRadius) * this.topSpeed;
+    // Linearno po udaljenosti od kursora, min brzina je 4
+    this.velocity = (1 - md / this.sensorRadius) * this.topSpeed + 4 * md / this.sensorRadius; 
   } else if (this.velocity > 1) {
-    this.velocity = this.velocity * 0.8;
+    this.velocity = this.velocity * 0.9;
   } else {
     this.rotationSet = false;
     this.velocity = 0;
-  } 
+  }
   
 };
 
-WaterMarker.prototype.move = function(movement) {
+WaterMaker.prototype.move = function(movement) {
   if (movement <= 0) return movement;
   var a = (this.direction.x == 0) ? "x" : "y";
   var limit = (this.direction.x == 0) ? world.width : world.height;
@@ -190,16 +197,18 @@ WaterMarker.prototype.move = function(movement) {
     return 0;
   }
 }
-WaterMarker.prototype.rotate = function() {
+WaterMaker.prototype.rotate = function() {
   this.direction = {x: -1 * this.rotation * this.direction.y, y: this.rotation * this.direction.x};
 };
-WaterMarker.prototype.draw = function() {
+WaterMaker.prototype.draw = function() {
 	context.fillStyle = "#2096e5";
-  context.beginPath();
-	context.arc(this.position.x, this.position.y, this.size, 0, Math.PI*2, true);
-	context.fill();
+  if (this.direction.x == 0) {
+	  context.fillRect(this.position.x - 10, this.position.y - 5, 20, 10);
+  } else {
+	  context.fillRect(this.position.x - 5, this.position.y - 10, 10, 20);
+  }
 };
-WaterMarker.prototype.shoot = function() {
+WaterMaker.prototype.shoot = function() {
 	if (particles.length > 40) return;
   var q = 20;
 	while (--q >= 0) {
@@ -210,6 +219,64 @@ WaterMarker.prototype.shoot = function() {
 		particles.push( p );
 	}
 }
+
+// ================ FIRE ================
+
+function FireMaker() {
+	this.left = new Point(Math.random() * world.width / 2, Math.random() * world.height);
+	this.right = new Point(world.width / 2 * (1 + Math.random()), Math.random() * world.height);
+  this.radius = 5;
+  this.angle = -Math.PI/2;
+}
+FireMaker.prototype.updatePosition = function() {
+  this.left.position.x = (this.left.position.x + 3 * Math.sin(this.angle/2)) % world.width
+  this.left.position.y = (this.left.position.y + 3 * Math.cos(this.angle))% world.height
+
+  this.right.position.x = (this.right.position.x + 3 * Math.cos(this.angle*1.2  )) % world.width
+  this.right.position.y = (this.right.position.y + 3 * Math.sin(this.angle)) % world.height
+
+
+  this.angle = (this.angle + 0.1) % (2 * Math.PI);
+};
+
+FireMaker.prototype.draw = function() {
+	context.beginPath();
+  context.strokeStyle = "#ca3220";
+	context.lineWidth = 3;
+	context.arc(this.left.position.x, this.left.position.y, this.radius, this.angle, this.angle + Math.PI, true);
+	context.stroke();
+	context.beginPath();
+	context.arc(this.right.position.x, this.right.position.y, this.radius, this.angle, this.angle + Math.PI);
+	context.stroke();
+};
+
+
+// ======= AUDIO =========
+
+var actx = new (window.AudioContext || window.webkitAudioContext)();
+var audioNodes = {
+  src:  actx.createScriptProcessor(4096, 0, 1),
+  vol: actx.createGain(),
+  dest: actx.destination
+}
+audioNodes.src.onaudioprocess = function(e) {
+  var ob = e.outputBuffer;
+  for (var c = 0; c < ob.numberOfChannels; c++) {
+    var od = ob.getChannelData(c);
+    for (var s = 0; s < ob.length; s++) {
+      od[s] = sound(actx.currentTime + ob.duration * s / ob.length);
+    }
+  }
+}
+
+audioNodes.vol.gain.value = 1; // Change for sound
+audioNodes.src.connect(audioNodes.vol);
+audioNodes.vol.connect(audioNodes.dest);
+
+function sound(t) {
+  return 0.2 * Math.sin(mouse.x * t * Math.PI * 2) + 0.2 * Math.sin(mouse.y * t * Math.PI * 2);
+}
+
 
 function outOfWorld(position) { return position.x < 0 || position.x > world.width || position.y < 0 || position.y > world.height; }
 function limitedX(value) { return Math.min(world.width, Math.max(0, value)); }

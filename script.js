@@ -91,6 +91,7 @@ function animate() {
   // Water marker
   waterMarker.updatePosition();
 	waterMarker.draw();
+
   if (mouse.pressed) {
     waterMarker.shoot();
   }
@@ -99,9 +100,12 @@ function animate() {
   for (var i = 0; i < particles.length; i++) {
     particles[i].updatePosition();
     particles[i].draw();
-    if (particles[i].dead) particles.splice(i, 1); // hoće li for petlja raditi ok nakon ovog?
+    if (particles[i].dead) {
+      particles.splice(i, 1);
+      i--;
+    }
   }
-  
+
   requestAnimFrame(animate);
 }
 
@@ -121,14 +125,13 @@ Point.prototype.clonePosition = function() {
 };
 
 function WaterParticle() {
+	this.position = { x: 0, y: 0 };
 }
 WaterParticle.prototype = new Point();
 WaterParticle.prototype.updatePosition = function() {
   this.position.x = this.position.x + this.velocity.x;
   this.position.y = this.position.y + this.velocity.y;
   this.dead = outOfWorld(this.position)
-  console.log(this.velocity)
-  
 }
 WaterParticle.prototype.draw = function() {
 	context.fillStyle = "#2076f5";
@@ -197,15 +200,13 @@ WaterMarker.prototype.draw = function() {
 	context.fill();
 };
 WaterMarker.prototype.shoot = function() {
-  console.log(particles)
 	if (particles.length > 40) return;
-  var q = 20;	
+  var q = 20;
 	while (--q >= 0) {
 		var p = new WaterParticle();
-		p.position.x = this.position.x + (Math.random() - 0.5) * 40;
-		p.position.y = this.position.y;
-		p.velocity = { x: this.direction.x *  (Math.random() + 0.5), y: this.direction.y * (Math.random() + 0.5) };
-    console.log(p.velocity)
+		p.position.x = this.position.x + (Math.random() - 0.5) * 40 * this.direction.y;
+		p.position.y = this.position.y + (Math.random() - 0.5) * 40 * this.direction.x;
+		p.velocity = { x: this.direction.x * 10 * (1 - Math.random() * 0.2), y: this.direction.y * 10 * (1 - Math.random() * 0.2) };
 		particles.push( p );
 	}
 }

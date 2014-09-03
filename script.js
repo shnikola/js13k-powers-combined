@@ -37,7 +37,7 @@ var pressedKeys = {};
 
 // User 
 var particles = [];
-var waterMarker = null;
+var waterMaker = null;
 
 function init() {
   canvas = document.getElementById("canvas");
@@ -46,7 +46,7 @@ function init() {
   canvas.width = world.width;
 	canvas.height = world.height;
   
-  waterMarker = new WaterMarker();
+  waterMaker = new WaterMaker();
   
 	document.addEventListener('mousemove', documentMouseMoveHandler, false);
 	document.addEventListener('mousedown', documentMouseDownHandler, false);
@@ -65,7 +65,7 @@ function init() {
 	
 	function documentMouseUpHandler(event) {
 		mouse.pressed = false;
-    console.log("M: ", waterMarker.position.x, waterMarker.position.y);
+    console.log("M: ", waterMaker.position.x, waterMaker.position.y);
 	}
   
 	function documentKeyDownHandler(event) {
@@ -89,11 +89,11 @@ function animate() {
 	context.clearRect(0, 0, canvas.width, canvas.height);
   
   // Water marker
-  waterMarker.updatePosition();
-	waterMarker.draw();
+  waterMaker.updatePosition();
+	waterMaker.draw();
 
   if (mouse.pressed) {
-    waterMarker.shoot();
+    waterMaker.shoot();
   }
 
   // Particles
@@ -124,6 +124,8 @@ Point.prototype.clonePosition = function() {
 	return { x: this.position.x, y: this.position.y };
 };
 
+// ================ WATER ================
+
 function WaterParticle() {
 	this.position = { x: 0, y: 0 };
 }
@@ -138,9 +140,8 @@ WaterParticle.prototype.draw = function() {
   context.fillRect(this.position.x, this.position.y, 5, 5);
 }
 
-// Water marker
 
-function WaterMarker() {
+function WaterMaker() {
 	this.position = { x: world.width * Math.random(), y: world.height };
 	this.velocity = 0;
   this.direction = {x: 0, y: -1};
@@ -148,10 +149,10 @@ function WaterMarker() {
   this.rotationSet = false;
 	this.size = 6;
 	this.topSpeed = 90;
-  this.sensorRadius = 220;
+  this.sensorRadius = 180;
 }
-WaterMarker.prototype = new Point();
-WaterMarker.prototype.updatePosition = function() {
+WaterMaker.prototype = new Point();
+WaterMaker.prototype.updatePosition = function() {
   var movement = this.velocity;
   while (movement > 0) {
     movement = this.move(movement);
@@ -159,17 +160,18 @@ WaterMarker.prototype.updatePosition = function() {
   var md = this.distanceTo(mouse);
   if (md < this.sensorRadius) {
     if (!this.rotationSet) { this.rotation = Math.sign(Math.random() - 0.5); this.rotationSet = true }
-    this.velocity = (1 - md / this.sensorRadius) * this.topSpeed;
+    // Linearno po udaljenosti od kursora, min brzina je 4
+    this.velocity = (1 - md / this.sensorRadius) * this.topSpeed + 4 * md / this.sensorRadius; 
   } else if (this.velocity > 1) {
-    this.velocity = this.velocity * 0.8;
+    this.velocity = this.velocity * 0.9;
   } else {
     this.rotationSet = false;
     this.velocity = 0;
-  } 
+  }
   
 };
 
-WaterMarker.prototype.move = function(movement) {
+WaterMaker.prototype.move = function(movement) {
   if (movement <= 0) return movement;
   var a = (this.direction.x == 0) ? "x" : "y";
   var limit = (this.direction.x == 0) ? world.width : world.height;
@@ -190,16 +192,18 @@ WaterMarker.prototype.move = function(movement) {
     return 0;
   }
 }
-WaterMarker.prototype.rotate = function() {
+WaterMaker.prototype.rotate = function() {
   this.direction = {x: -1 * this.rotation * this.direction.y, y: this.rotation * this.direction.x};
 };
-WaterMarker.prototype.draw = function() {
+WaterMaker.prototype.draw = function() {
 	context.fillStyle = "#2096e5";
-  context.beginPath();
-	context.arc(this.position.x, this.position.y, this.size, 0, Math.PI*2, true);
-	context.fill();
+  if (this.direction.x == 0) {
+	  context.fillRect(this.position.x - 10, this.position.y - 5, 20, 10);
+  } else {
+	  context.fillRect(this.position.x - 5, this.position.y - 10, 10, 20);
+  }
 };
-WaterMarker.prototype.shoot = function() {
+WaterMaker.prototype.shoot = function() {
 	if (particles.length > 40) return;
   var q = 20;
 	while (--q >= 0) {
@@ -210,6 +214,7 @@ WaterMarker.prototype.shoot = function() {
 		particles.push( p );
 	}
 }
+
 
 function outOfWorld(position) { return position.x < 0 || position.x > world.width || position.y < 0 || position.y > world.height; }
 function limitedX(value) { return Math.min(world.width, Math.max(0, value)); }

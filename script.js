@@ -108,8 +108,13 @@ function animate() {
 }
 
 function selectMaker() {
-  if (pressedKeys[49]) { withLock(function(){ maker = new WaterMaker(); }, 500, "maker-switch", window); }
-  else if (pressedKeys[50]) { withLock(function(){ maker = new FireMaker(); }, 500, "maker-switch", window); }
+  if (pressedKeys[49]) {
+    withLock(function(){ maker = new WaterMaker(); }, 500, "maker-switch", window); }
+  else if (pressedKeys[50]) {
+    withLock(function(){ maker = new FireMaker(); }, 500, "maker-switch", window); }
+  else if (pressedKeys[51]) {
+    withLock(function(){ maker = new AirMaker(); }, 500, "maker-switch", window);
+  }
 }
 
 // Basic point
@@ -318,20 +323,75 @@ FireParticle.prototype.draw = function() {
 // ================ AIR ================
 
 function AirMaker() {
-
+  this.x = 4;
+  this.y = 4;
+  this.size = 1;
+  this.readyToShoot = false;
 }
 AirMaker.prototype = new Point();
-AirMaker.prototype.draw = function() {};
+AirMaker.prototype.draw = function() {
+  context.fillStyle = "#5BDBE0";
+  context.fillRect(this.x, this.y, 1, 1);
+};
+AirMaker.prototype.updatePosition = function() {
+  this.x = mouse.x;
+  this.y = mouse.y;
+
+  if (mouse.pressed) {
+      this.readyToShoot = true;
+  }
+
+  if (!mouse.pressed) {
+    if (this.readyToShoot) {
+      this.shoot();
+    }
+    this.readyToShoot = false;
+  }
+
+};
+AirMaker.prototype.shoot = function() {
+  for(var i = 0; i < 20 ; i++){
+    var prefixz = [1, 1];
+    for (var j = 0; j < prefixz.length; j++){
+      if (Math.random() > 0.5) { prefixz[j] = -1; }
+    }
+
+    var airP = new AirParticle(mouse.x, mouse.y,
+                                prefixz[0] * Math.random() * 5,
+                                prefixz[1] * Math.random() * 5, -0.05);
+    particles.push(airP);
+  }
+};
+
 AirMaker.prototype.sound = function(t) {
   var f1 = Math.round(mouse.x/10)*10;
   var f2 = Math.round(mouse.y/10)*10;
   return 0.2 * Math.sin(f1 * t * Math.PI * 2) + 0.2 * Math.sin(f2 * t * Math.PI * 2);
 };
 
+function AirParticle(x, y, movX, movY, alphaDelta){
+  this.x = x;
+  this.y = y;
+  this.alpha = 1.0;
+  this.alphaDelta = alphaDelta;
+  this.size = 3;
+  this.movementX = movX;
+  this.movementY = movY;
+}
+AirParticle.prototype.draw = function() {
+  context.fillStyle = "rgba(63, 220, 214, " + this.alpha + ")";
+  this.alpha += this.alphaDelta;
+  context.fillRect(this.x, this.y, this.size, this.size);
+};
+AirParticle.prototype.updatePosition = function() {
+  this.x += this.movementX;
+  this.y += this.movementY;
+};
+
 
 // ================ AUDIO ================
 
-var actx = window.AudioContext || window.webkitAudioContext;
+var actx = new ( window.AudioContext || window.webkitAudioContext);
 var audioNodes = {
   src:  actx.createScriptProcessor(4096, 0, 1),
   vol: actx.createGain(),

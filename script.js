@@ -1,4 +1,4 @@
-/* 
+/*
 Here begins a beautiful story...
 
   ██▓███   ▒█████   █     █░▓█████  ██▀███    ██████     ▄████▄   ▒█████   ███▄ ▄███▓ ▄▄▄▄    ██▓ ███▄    █ ▓█████ ▓█████▄
@@ -22,7 +22,7 @@ var FRAMERATE = 60;
 var world = {
 	width: DEFAULT_WIDTH,
 	height: DEFAULT_HEIGHT
-}
+};
 
 var canvas = null;
 var context = null;
@@ -32,50 +32,52 @@ var mouse = {
   x: 0,
   y: 0,
   pressed: 0
-}
+};
 var pressedKeys = {};
 
-// User 
+// User
 var particles = [];
 var peeps = [];
 var maker = null;
 var makerSelectable = true;
+
+var shaking = false;
 
 function init() {
   canvas = document.getElementById("canvas");
   context = canvas.getContext('2d');
 
   canvas.width = world.width;
-  canvas.height = world.height;
-  
-  document.addEventListener('mousemove', documentMouseMoveHandler, false);
-  document.addEventListener('mousedown', documentMouseDownHandler, false);
-  document.addEventListener('mouseup', documentMouseUpHandler, false);
-  document.addEventListener('keydown', documentKeyDownHandler, false);
-  document.addEventListener('keyup', documentKeyUpHandler, false);
-  
-  function documentMouseMoveHandler(event){
-  	mouse.x = event.clientX - (window.innerWidth - world.width) * 0.5 - BORDER_WIDTH;
-  	mouse.y = event.clientY - (window.innerHeight - world.height) * 0.5 - BORDER_WIDTH;
-  }
-  
-  function documentMouseDownHandler(event){
-    mouse.pressed = true;
-  }
-  
-  function documentMouseUpHandler(event) {
-  	mouse.pressed = false;
+	canvas.height = world.height;
+
+	document.addEventListener('mousemove', documentMouseMoveHandler, false);
+	document.addEventListener('mousedown', documentMouseDownHandler, false);
+	document.addEventListener('mouseup', documentMouseUpHandler, false);
+	document.addEventListener('keydown', documentKeyDownHandler, false);
+	document.addEventListener('keyup', documentKeyUpHandler, false);
+
+	function documentMouseMoveHandler(event){
+		mouse.x = event.clientX - (window.innerWidth - world.width) * 0.5 - BORDER_WIDTH;
+		mouse.y = event.clientY - (window.innerHeight - world.height) * 0.5 - BORDER_WIDTH;
+	}
+
+	function documentMouseDownHandler(event){
+		mouse.pressed = true;
+	}
+
+	function documentMouseUpHandler(event) {
+		mouse.pressed = false;
     console.log("M: ", mouse.x, mouse.y);
-  }
-  
-  function documentKeyDownHandler(event) {
-    pressedKeys[event.keyCode] = true;
-  }
-  
-  function documentKeyUpHandler(event) {
-  	delete pressedKeys[event.keyCode]
-  }
-  
+	}
+
+	function documentKeyDownHandler(event) {
+	  pressedKeys[event.keyCode] = true;
+	}
+
+	function documentKeyUpHandler(event) {
+		delete pressedKeys[event.keyCode];
+	}
+
   populate();
   animate();
 }
@@ -101,25 +103,26 @@ function populate() {
 function animate() {
 	// Clear the canvas of all old pixel data
 	context.clearRect(0, 0, canvas.width, canvas.height);
-  
+
   for (var i = peeps.length - 1; i >= 0; i--) {
     peeps[i].updatePosition();
     peeps[i].draw();
   }
-  
+
   selectMaker();
-  
+
   if (maker) {
     maker.updatePosition();
     maker.draw();
   }
-  
+
   // Particles
-  for (var i = particles.length - 1; i >= 0; i--) {
+  for (var i = 0; i < particles.length; i++) {
     particles[i].updatePosition();
     particles[i].draw();
     if (particles[i].dead || outOfWorld(particles[i])) {
       particles.splice(i, 1);
+      i--;
     }
   }
 
@@ -127,20 +130,22 @@ function animate() {
 }
 
 function selectMaker() {
-  if (pressedKeys[49]) { withLock(function(){ maker = new WaterMaker() }, 500, "maker-switch", window); }
-  else if (pressedKeys[50]) { withLock(function(){ maker = new FireMaker() }, 500, "maker-switch", window); }
+  if (pressedKeys[49]) { withLock(function(){ maker = new WaterMaker(); }, 500, "maker-switch", window); }
+  else if (pressedKeys[50]) { withLock(function(){ maker = new FireMaker(); }, 500, "maker-switch", window); }
+  else if (pressedKeys[51]) { withLock(function(){ maker = new AirMaker(); }, 500, "maker-switch", window); }
+  else if (pressedKeys[52]) { withLock(function(){ maker = new EarthMaker(); }, 500, "maker-switch", window); }
 }
 
-// Basic point 
+// Basic point
 
 function Point(x, y) {
   this.x = x;
   this.y = y;
 }
 Point.prototype.distanceTo = function(p) {
-  var dx = p.x-this.x;
-  var dy = p.y-this.y;
-  return Math.sqrt(dx*dx + dy*dy);
+	var dx = p.x-this.x;
+	var dy = p.y-this.y;
+	return Math.sqrt(dx*dx + dy*dy);
 };
 Point.prototype.collidesWith = function(o) {
   return !(
@@ -149,7 +154,7 @@ Point.prototype.collidesWith = function(o) {
     ((this.x + this.size) < o.x) ||
     (this.x > (o.x + o.size))
   );
-}
+};
 
 // ================ PEEPS ================
 
@@ -171,11 +176,17 @@ Peep.prototype.updatePosition = function() {
       particles[i].collide(this);
     }
   }
+  
+  if (shaking) {
+    this.x += sign(Math.random() - 0.5);
+    this.y += sign(Math.random() - 0.5);
+  }
+  
   this.x += this.v.x;
   this.y += this.v.y;
   this.v.x *= 0.9;
   this.v.y *= 0.9;
-}
+};
 
 Peep.prototype.draw = function() {
   context.fillStyle = "rgba(255, 255, 255, " + this.opacity + ")";
@@ -191,17 +202,17 @@ Peep.prototype.draw = function() {
     context.fillRect(eyeX, eyeY, 4, 4);
     context.fillRect(eyeX + this.direction * this.eyeWidth, eyeY, 4, 4);
   }
-}
+};
 
 Peep.prototype.blink = function() {
   this.blinking = !this.blinking;
   setTimeout(this.blink.bind(this), this.blinking ? Math.random()*400 : Math.random()*3000);
-}
+};
 
 // ================ WATER ================
 
 function WaterMaker() {
-	this.x = world.width * Math.random()
+	this.x = world.width * Math.random();
   this.y = world.height;
 	this.velocity = 10;
   this.charging = false;
@@ -223,16 +234,16 @@ WaterMaker.prototype.updatePosition = function() {
   }
   var md = this.distanceTo(mouse);
   if (md < this.sensorRadius) {
-    if (!this.rotationSet) { this.rotation = Math.sign(Math.random() - 0.5); this.rotationSet = true }
+    if (!this.rotationSet) { this.rotation = sign(Math.random() - 0.5); this.rotationSet = true; }
     // Linearno po udaljenosti od kursora, min brzina je 4
-    this.velocity = (1 - md / this.sensorRadius) * this.topSpeed + 4 * md / this.sensorRadius; 
+    this.velocity = (1 - md / this.sensorRadius) * this.topSpeed + 4 * md / this.sensorRadius;
   } else if (this.velocity > 1) {
     this.velocity *= 0.9;
   } else {
     this.rotationSet = false;
     this.velocity = 0;
   }
-  
+
   if (mouse.pressed) {
     this.charging = true;
   }
@@ -241,7 +252,7 @@ WaterMaker.prototype.updatePosition = function() {
     this.size = this.sizeMin + (this.sizeMax - this.sizeMin) * (1 + Math.sin(this.sizeAngle)) / 2;
     this.sizeAngle = modulo(this.sizeAngle + 0.3, 2 * Math.PI);
   }
-  
+
   if (this.charging && !mouse.pressed) {
     withLock(this.shoot, 400, "water-shoot", this);
   }
@@ -249,12 +260,12 @@ WaterMaker.prototype.updatePosition = function() {
 
 WaterMaker.prototype.move = function(movement) {
   if (movement <= 0) return movement;
-  var a = (this.direction.x == 0) ? "x" : "y";
-  var limit = (this.direction.x == 0) ? world.width : world.height;
+  var a = (this.direction.x === 0) ? "x" : "y";
+  var limit = (this.direction.x === 0) ? world.width : world.height;
   var dir = this.rotation * (-this.direction.x + this.direction.y);
   var pos = this[a] + dir*movement;
   if (pos < 0) {
-    movement = movement - this[a]; 
+    movement = movement - this[a];
     this[a] = 0;
     this.rotate();
     return movement;
@@ -267,16 +278,16 @@ WaterMaker.prototype.move = function(movement) {
     this[a] = pos;
     return 0;
   }
-}
+};
 WaterMaker.prototype.rotate = function() {
   this.direction = {x: -1 * this.rotation * this.direction.y, y: this.rotation * this.direction.x};
 };
 WaterMaker.prototype.draw = function() {
-  context.fillStyle = "#2096e5";
-  if (this.direction.x == 0) {
-    context.fillRect(this.x - this.size, this.y - 5, this.size * 2, 10);
+	context.fillStyle = "#2096e5";
+  if (this.direction.x === 0) {
+	  context.fillRect(this.x - this.size, this.y - 5, this.size * 2, 10);
   } else {
-    context.fillRect(this.x - 5, this.y - this.size, 10, this.size * 2);
+	  context.fillRect(this.x - 5, this.y - this.size, 10, this.size * 2);
   }
 };
 WaterMaker.prototype.shoot = function() {
@@ -286,16 +297,16 @@ WaterMaker.prototype.shoot = function() {
     var x = this.x + (Math.random() - 0.5) * 2 * this.size * this.direction.y;
     var y = this.y + (Math.random() - 0.5) * 2 * this.size * this.direction.x;
     var p = new WaterParticle(x, y);
-    var v = 5 + (this.sizeMax - this.size) / this.sizeMax * 10 // speed from 2 to 15
+    var v = 5 + (this.sizeMax - this.size) / this.sizeMax * 10; // speed from 2 to 15
     v *= (1 - Math.random() * 0.2); // Make each one a bit random
     p.v = { x: this.direction.x * v, y: this.direction.y * v };
     particles.push( p );
   }
-}
+};
 WaterMaker.prototype.sound = function(t) {
   var f = this.velocity > 5 ? (this.velocity * 300) : 0;
   return 0.2 * Math.sin(f * t * Math.PI * 2);
-}
+};
 
 function WaterParticle(x, y) {
   this.x = x;
@@ -306,17 +317,17 @@ WaterParticle.prototype = new Point();
 WaterParticle.prototype.updatePosition = function() {
   this.x += this.v.x;
   this.y += this.v.y;
-}
+};
 WaterParticle.prototype.draw = function() {
 	context.fillStyle = "#2076f5";
   context.fillRect(this.x, this.y, this.size, this.size);
-}
+};
 WaterParticle.prototype.collide = function(obj) {
   obj.v.x = (obj.v.x * (obj.size - this.size) + (2 * this.size * this.v.x)) / (obj.size + this.size);
-  obj.v.y = (obj.v.y * (obj.size - this.size) + (2 * this.size * this.v.y)) / (obj.size + this.size);  
+  obj.v.y = (obj.v.y * (obj.size - this.size) + (2 * this.size * this.v.y)) / (obj.size + this.size);
   obj.blinking = true;
   this.dead = true;
-}
+};
 
 // ================ FIRE ================
 
@@ -329,22 +340,22 @@ function FireMaker() {
 }
 FireMaker.prototype.updatePosition = function() {
   if (pressedKeys[87]) {
-    withLock(function() { this.speed[2] = !this.speed[2] }, 200, "fire-left-switch", this);
+    withLock(function() { this.speed[2] = !this.speed[2]; }, 200, "fire-left-switch", this);
   }
   if (pressedKeys[82]) {
-    withLock(function() { this.speed[3] = !this.speed[3] }, 200, "fire-right-switch", this);
+    withLock(function() { this.speed[3] = !this.speed[3]; }, 200, "fire-right-switch", this);
   }
   if (pressedKeys[69]) {
     withLock(this.shoot, 1000, "fire-shoot", this);
   }
-  
+
   var ls = this.speed[this.speed[2] ? 1 : 0];
   var rs = this.speed[this.speed[3] ? 1 : 0];
   this.left.x = modulo(this.left.x + ls * Math.sin(this.angle), world.width);
   this.left.y = modulo(this.left.y + ls * Math.cos(this.angle), world.height);
   this.right.x = modulo(this.right.x + rs * Math.cos(this.angle), world.width);
   this.right.y = modulo(this.right.y + rs * Math.sin(this.angle), world.height);
-  
+
   this.angle = modulo(this.angle + 0.1, 2 * Math.PI);
 };
 
@@ -369,13 +380,13 @@ FireMaker.prototype.shoot = function() {
     var p = new FireParticle(x, y);
     particles.push( p );
   }
-}
+};
 
 FireMaker.prototype.sound = function(t) {
   var f1 = this.left.x;
   var f2 = this.right.y;
   return 0.2 * Math.sin(f1 * t * Math.PI * 2) + 0.2 * Math.sin(f2 * t * Math.PI * 2);
-}
+};
 
 function FireParticle(x, y) {
   this.x = x;
@@ -386,39 +397,151 @@ FireParticle.prototype = new Point();
 FireParticle.prototype.updatePosition = function() {
   this.x += (Math.random() - 0.5) * 2;
   this.y += (Math.random() - 0.2) * 2;
-}
+};
 FireParticle.prototype.draw = function() {
   context.fillStyle = "#f64f0a";
   context.fillRect(this.x, this.y, this.size, this.size);
-}
+};
 FireParticle.prototype.collide = function() {
   // todo
-}
+};
 
 // ================ AIR ================
 
 function AirMaker() {
-  
+  this.x = 4;
+  this.y = 4;
+  this.size = 1;
+  this.readyToShoot = false;
 }
 AirMaker.prototype = new Point();
-AirMaker.prototype.draw = function() {}
+AirMaker.prototype.draw = function() {
+  context.fillStyle = "#5BDBE0";
+  context.fillRect(this.x, this.y, 1, 1);
+};
+AirMaker.prototype.updatePosition = function() {
+  this.x = mouse.x;
+  this.y = mouse.y;
+
+  if (mouse.pressed) {
+      this.readyToShoot = true;
+  }
+
+  if (!mouse.pressed) {
+    if (this.readyToShoot) {
+      this.shoot();
+    }
+    this.readyToShoot = false;
+  }
+
+};
+AirMaker.prototype.shoot = function() {
+  for(var i = 0; i < 20 ; i++){
+    var prefixz = [1, 1];
+    for (var j = 0; j < prefixz.length; j++){
+      if (Math.random() > 0.5) { prefixz[j] = -1; }
+    }
+
+    var airP = new AirParticle(mouse.x, mouse.y,
+                                prefixz[0] * Math.random() * 5,
+                                prefixz[1] * Math.random() * 5, -0.05);
+    particles.push(airP);
+  }
+};
+
 AirMaker.prototype.sound = function(t) {
   var f1 = Math.round(mouse.x/10)*10;
   var f2 = Math.round(mouse.y/10)*10;
   return 0.2 * Math.sin(f1 * t * Math.PI * 2) + 0.2 * Math.sin(f2 * t * Math.PI * 2);
+};
+
+function AirParticle(x, y, movX, movY, alphaDelta){
+  this.x = x;
+  this.y = y;
+  this.alpha = 1.0;
+  this.alphaDelta = alphaDelta;
+  this.size = 3;
+  this.movementX = movX;
+  this.movementY = movY;
 }
+AirParticle.prototype = new Point();
+AirParticle.prototype.draw = function() {
+  context.fillStyle = "rgba(63, 220, 214, " + this.alpha + ")";
+  this.alpha += this.alphaDelta;
+  context.fillRect(this.x, this.y, this.size, this.size);
+};
+AirParticle.prototype.updatePosition = function() {
+  this.x += this.movementX;
+  this.y += this.movementY;
+};
+AirParticle.prototype.collide = function() {
+  //prazan sam
+};
 
 
 // ================ EARTH ================
 
 function EarthMaker() {
-  
+  this.size = 0;
+  this.sizeFull = 150;
+  this.sequence = [80, 79, 73];
+  this.sequenceIndex = 0;
+  this.recedeSpeed = 100;
+  this.recede();
 }
-EarthMaker.prototype = new Point();
-EarthMaker.prototype.draw = function() {}
-EarthMaker.prototype.sound = function(t) {
+EarthMaker.prototype.updatePosition = function() {
+  var nextSeq = modulo(this.sequenceIndex + 1, this.sequence.length);
+  if (pressedKeys[this.sequence[this.sequenceIndex]] && !pressedKeys[this.sequence[nextSeq]]) {
+    this.sequenceIndex = nextSeq;
+    this.size += 5;
+  }
+  
+  if (this.size >= this.sizeFull) {
+    this.recedeSpeed = 0;
+    this.quake();
+  } else if (this.size > 100) {
+    this.recedeSpeed = 45;
+  } else if (this.size > 50) {
+    this.recedeSpeed = 60;
+  } else {
+    this.recedeSpeed = 100;
+  }
+};
+
+EarthMaker.prototype.recede = function() {
+  this.size = Math.max(0, this.size - 2);
+  if (this.size < this.sizeFull) {
+    setTimeout(this.recede.bind(this), this.recedeSpeed);
+  }
 }
 
+EarthMaker.prototype.draw = function() {
+	context.fillStyle = "#552616";
+  if (this.size > 0) {
+    var lowerLength = world.width * Math.min(this.size / 50, 1);
+    context.fillRect(world.width/2 - lowerLength/2, world.height - 5, lowerLength, 10);
+  }
+  if (this.size > 50) {
+    var sideLength = world.height * Math.min((this.size - 50) / 50, 1);
+    context.fillRect(0, world.height, 5, -sideLength);
+    context.fillRect(world.width, world.height, -5, -sideLength);
+  }
+  if (this.size > 100) {
+    var upperLength = world.width * Math.min((this.size - 100)/ 50, 1);
+    context.fillRect(0, 0, upperLength/2, 5);
+    context.fillRect(world.width, 0, -upperLength/2, 5);
+  }
+}
+
+EarthMaker.prototype.quake = function() {
+  shaking = true;
+  var self = this;
+  setTimeout(function() {
+    shaking = false;
+    self.size = 0;
+    self.recede();
+  }, 6000);
+}
 
 // ================ AUDIO ================
 
@@ -427,7 +550,7 @@ var audioNodes = {
   src:  actx.createScriptProcessor(4096, 0, 1),
   vol: actx.createGain(),
   dest: actx.destination
-}
+};
 audioNodes.src.onaudioprocess = function(e) {
   if (!maker || !maker.sound) return;
   var ob = e.outputBuffer;
@@ -437,31 +560,32 @@ audioNodes.src.onaudioprocess = function(e) {
       od[s] = maker.sound(actx.currentTime + ob.duration * s / ob.length) || 0;
     }
   }
-}
+};
 
 audioNodes.vol.gain.value = 1; // Change for sound
 audioNodes.src.connect(audioNodes.vol);
 audioNodes.vol.connect(audioNodes.dest);
 
 
+
 function withLock(func, ms, key, that) {
   if (that[key + "-locked"]) return;
   func.call(that);
   that[key + "-locked"] = true;
-  setTimeout(function() { that[key + "-locked"] = false }, ms);
+  setTimeout(function() { that[key + "-locked"] = false; }, ms);
 }
 
+function sign(n) { return n?n<0?-1:1:0; };
 function modulo(v, n) { return ((v%n)+n)%n; }
 function outOfWorld(p) { return p.x < 0 || p.x > world.width || p.y < 0 || p.y > world.height; }
 
-Math.sign = function(n) { return n?n<0?-1:1:0 }
 // shim with setTimeout fallback from http://paulirish.com/2011/requestanimationframe-for-smart-animating/
 window.requestAnimFrame = (function(){
-  return  window.requestAnimationFrame       || 
-          window.webkitRequestAnimationFrame || 
-          window.mozRequestAnimationFrame    || 
-          window.oRequestAnimationFrame      || 
-          window.msRequestAnimationFrame     || 
+  return  window.requestAnimationFrame       ||
+          window.webkitRequestAnimationFrame ||
+          window.mozRequestAnimationFrame    ||
+          window.oRequestAnimationFrame      ||
+          window.msRequestAnimationFrame     ||
           function(callback, element){
             window.setTimeout(callback, 1000 / 60);
           };

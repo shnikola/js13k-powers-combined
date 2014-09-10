@@ -130,7 +130,7 @@ function animate() {
 function selectMaker() {
   if (pressedKeys[49]) { withLock(function(){ maker = new WaterMaker(); }, 500, "maker-switch", window); }
   else if (pressedKeys[50]) { withLock(function(){ maker = new FireMaker(); }, 500, "maker-switch", window); }
-  else if (pressedKeys[51]) { withlock(function(){ maker = new AirMaker(); }, 500, "maker-switch", window); }
+  else if (pressedKeys[51]) { withLock(function(){ maker = new AirMaker(); }, 500, "maker-switch", window); }
 }
 
 // Basic point
@@ -463,6 +463,9 @@ AirParticle.prototype.draw = function() {
 AirParticle.prototype.updatePosition = function() {
   this.x += this.movementX;
   this.y += this.movementY;
+};
+AirParticle.prototype.collide = function() {
+  //prazan sam
 };
 
 

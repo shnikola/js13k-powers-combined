@@ -455,6 +455,7 @@ function AirParticle(x, y, movX, movY, alphaDelta){
   this.movementX = movX;
   this.movementY = movY;
 }
+AirParticle.prototype = new Point();
 AirParticle.prototype.draw = function() {
   context.fillStyle = "rgba(63, 220, 214, " + this.alpha + ")";
   this.alpha += this.alphaDelta;

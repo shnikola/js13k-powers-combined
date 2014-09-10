@@ -41,6 +41,8 @@ var peeps = [];
 var maker = null;
 var makerSelectable = true;
 
+var shaking = false;
+
 function init() {
   canvas = document.getElementById("canvas");
   context = canvas.getContext('2d');
@@ -131,6 +133,7 @@ function selectMaker() {
   if (pressedKeys[49]) { withLock(function(){ maker = new WaterMaker(); }, 500, "maker-switch", window); }
   else if (pressedKeys[50]) { withLock(function(){ maker = new FireMaker(); }, 500, "maker-switch", window); }
   else if (pressedKeys[51]) { withLock(function(){ maker = new AirMaker(); }, 500, "maker-switch", window); }
+  else if (pressedKeys[52]) { withLock(function(){ maker = new EarthMaker(); }, 500, "maker-switch", window); }
 }
 
 // Basic point
@@ -173,6 +176,12 @@ Peep.prototype.updatePosition = function() {
       particles[i].collide(this);
     }
   }
+  
+  if (shaking) {
+    this.x += sign(Math.random() - 0.5);
+    this.y += sign(Math.random() - 0.5);
+  }
+  
   this.x += this.v.x;
   this.y += this.v.y;
   this.v.x *= 0.9;
@@ -225,7 +234,7 @@ WaterMaker.prototype.updatePosition = function() {
   }
   var md = this.distanceTo(mouse);
   if (md < this.sensorRadius) {
-    if (!this.rotationSet) { this.rotation = Math.sign(Math.random() - 0.5); this.rotationSet = true }
+    if (!this.rotationSet) { this.rotation = sign(Math.random() - 0.5); this.rotationSet = true; }
     // Linearno po udaljenosti od kursora, min brzina je 4
     this.velocity = (1 - md / this.sensorRadius) * this.topSpeed + 4 * md / this.sensorRadius;
   } else if (this.velocity > 1) {
@@ -251,8 +260,8 @@ WaterMaker.prototype.updatePosition = function() {
 
 WaterMaker.prototype.move = function(movement) {
   if (movement <= 0) return movement;
-  var a = (this.direction.x == 0) ? "x" : "y";
-  var limit = (this.direction.x == 0) ? world.width : world.height;
+  var a = (this.direction.x === 0) ? "x" : "y";
+  var limit = (this.direction.x === 0) ? world.width : world.height;
   var dir = this.rotation * (-this.direction.x + this.direction.y);
   var pos = this[a] + dir*movement;
   if (pos < 0) {
@@ -275,7 +284,7 @@ WaterMaker.prototype.rotate = function() {
 };
 WaterMaker.prototype.draw = function() {
 	context.fillStyle = "#2096e5";
-  if (this.direction.x == 0) {
+  if (this.direction.x === 0) {
 	  context.fillRect(this.x - this.size, this.y - 5, this.size * 2, 10);
   } else {
 	  context.fillRect(this.x - 5, this.y - this.size, 10, this.size * 2);
@@ -470,6 +479,70 @@ AirParticle.prototype.collide = function() {
 };
 
 
+// ================ EARTH ================
+
+function EarthMaker() {
+  this.size = 0;
+  this.sizeFull = 150;
+  this.sequence = [80, 79, 73];
+  this.sequenceIndex = 0;
+  this.recedeSpeed = 100;
+  this.recede();
+}
+EarthMaker.prototype.updatePosition = function() {
+  var nextSeq = modulo(this.sequenceIndex + 1, this.sequence.length);
+  if (pressedKeys[this.sequence[this.sequenceIndex]] && !pressedKeys[this.sequence[nextSeq]]) {
+    this.sequenceIndex = nextSeq;
+    this.size += 5;
+  }
+  
+  if (this.size >= this.sizeFull) {
+    this.recedeSpeed = 0;
+    this.quake();
+  } else if (this.size > 100) {
+    this.recedeSpeed = 45;
+  } else if (this.size > 50) {
+    this.recedeSpeed = 60;
+  } else {
+    this.recedeSpeed = 100;
+  }
+};
+
+EarthMaker.prototype.recede = function() {
+  this.size = Math.max(0, this.size - 2);
+  if (this.size < this.sizeFull) {
+    setTimeout(this.recede.bind(this), this.recedeSpeed);
+  }
+}
+
+EarthMaker.prototype.draw = function() {
+	context.fillStyle = "#552616";
+  if (this.size > 0) {
+    var lowerLength = world.width * Math.min(this.size / 50, 1);
+    context.fillRect(world.width/2 - lowerLength/2, world.height - 5, lowerLength, 10);
+  }
+  if (this.size > 50) {
+    var sideLength = world.height * Math.min((this.size - 50) / 50, 1);
+    context.fillRect(0, world.height, 5, -sideLength);
+    context.fillRect(world.width, world.height, -5, -sideLength);
+  }
+  if (this.size > 100) {
+    var upperLength = world.width * Math.min((this.size - 100)/ 50, 1);
+    context.fillRect(0, 0, upperLength/2, 5);
+    context.fillRect(world.width, 0, -upperLength/2, 5);
+  }
+}
+
+EarthMaker.prototype.quake = function() {
+  shaking = true;
+  var self = this;
+  setTimeout(function() {
+    shaking = false;
+    self.size = 0;
+    self.recede();
+  }, 6000);
+}
+
 // ================ AUDIO ================
 
 var actx = new (window.AudioContext || window.webkitAudioContext)();
@@ -502,10 +575,10 @@ function withLock(func, ms, key, that) {
   setTimeout(function() { that[key + "-locked"] = false; }, ms);
 }
 
+function sign(n) { return n?n<0?-1:1:0; };
 function modulo(v, n) { return ((v%n)+n)%n; }
 function outOfWorld(p) { return p.x < 0 || p.x > world.width || p.y < 0 || p.y > world.height; }
 
-Math.sign = function(n) { return n?n<0?-1:1:0; };
 // shim with setTimeout fallback from http://paulirish.com/2011/requestanimationframe-for-smart-animating/
 window.requestAnimFrame = (function(){
   return  window.requestAnimationFrame       ||

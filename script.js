@@ -67,7 +67,6 @@ function init() {
 
 	function documentMouseUpHandler(event) {
 		mouse.pressed = false;
-    console.log("M: ", mouse.x, mouse.y);
 	}
 
 	function documentKeyDownHandler(event) {
@@ -82,13 +81,14 @@ function init() {
   animate();
 }
 
+// TODO: bolji raspored
 
 function populate() {
-  for (var i = 50; i < world.width - 100; i+=world.width / 5) {
-    for (var j = 50; j < world.height - 100; j+= world.width / 4) {
+  for (var i = 50; i < world.height - 100; i+=world.height / 5) {
+    for (var j = 50; j < world.width - 100; j+= world.width / 4) {
       if (Math.random() < 0.2) continue;
-      var x = i + 70 * Math.random();
-      var y = j + 70 * Math.random();
+      var x = j + 70 * Math.random();
+      var y = i + 70 * Math.random();
       var s = 20 + Math.random() * 45;
       var p = new Peep(x, y, s);
       peeps.push(p);
@@ -104,7 +104,7 @@ function animate() {
 	// Clear the canvas of all old pixel data
 	context.clearRect(0, 0, canvas.width, canvas.height);
 
-  for (var i = peeps.length - 1; i >= 0; i--) {
+  for (var i = 0; i < peeps.length; i++) {
     peeps[i].updatePosition();
     peeps[i].draw();
   }
@@ -117,12 +117,11 @@ function animate() {
   }
 
   // Particles
-  for (var i = 0; i < particles.length; i++) {
+  for (var i = particles.length - 1; i >= 0; i--) {
     particles[i].updatePosition();
     particles[i].draw();
     if (particles[i].dead || outOfWorld(particles[i])) {
       particles.splice(i, 1);
-      i--;
     }
   }
 
@@ -162,26 +161,53 @@ function Peep(x, y, s, d) {
   this.x = x;
   this.y = y;
   this.v = {x: 0, y: 0, max: 20};
+  this.w = {x: 5, y: 0};
   this.size = s || 10;
+  
   this.direction = d || Math.random() > 0.5 ? -1 : 1;
-  this.opacity = 0.5 + Math.random() / 2;
+  this.walking = Math.random() > 0.2;
+  this.walkNudge = 0;
+  this.walkNudgePeriod = Math.round(5 + Math.random() * 5);
+  this.walk();
+  
   this.eyeWidth = Math.max(this.size / 3 * Math.random(), this.size / 4);
   this.blinking = true;
   this.blink();
+  
+  this.burning = false;
+  
+  this.baseColor = Math.round(100 + Math.random() * 155);
+  this.color = [this.baseColor, this.baseColor, this.baseColor];
 }
 Peep.prototype = new Point();
 Peep.prototype.updatePosition = function() {
+  
+  // Collision with particles
   for (var i = particles.length - 1; i >= 0; i--) {
     if (particles[i].collidesWith(this)) {
       particles[i].collide(this);
     }
   }
   
+  // Wall bumping
+  if (this.x < 0) { this.direction = 1; this.v.x = Math.abs(this.v.x); }
+  if (this.x > world.width - this.size) { this.direction = -1; this.v.x = -Math.abs(this.v.x); }
+  if (this.y < 0) { this.v.y = Math.abs(this.v.y); }
+  if (this.y > world.height - this.size) { this.v.y = -Math.abs(this.v.y); }
+  
+  // Shaky shaky
   if (shaking) {
+    this.blinking = true;
     this.x += sign(Math.random() - 0.5);
     this.y += sign(Math.random() - 0.5);
   }
   
+  // Burning
+  if (this.burning) {
+    this.w.x = 25;
+  }
+    
+  // Final movement
   this.x += this.v.x;
   this.y += this.v.y;
   this.v.x *= 0.9;
@@ -189,7 +215,7 @@ Peep.prototype.updatePosition = function() {
 };
 
 Peep.prototype.draw = function() {
-  context.fillStyle = "rgba(255, 255, 255, " + this.opacity + ")";
+  context.fillStyle = "rgb(" + this.color[0] + ", " + this.color[1] + ", " + this.color[2] + ")";
   context.fillRect(this.x, this.y, this.size, this.size);
   var eyeX = this.x + this.size/2 + this.direction * this.size/8;
   var eyeY = this.y + this.size*2/3;
@@ -208,6 +234,26 @@ Peep.prototype.blink = function() {
   this.blinking = !this.blinking;
   setTimeout(this.blink.bind(this), this.blinking ? Math.random()*400 : Math.random()*3000);
 };
+
+Peep.prototype.walk = function() {
+  if (this.walking) {
+    this.walkNudge = modulo(this.walkNudge + 1, this.walkNudgePeriod);
+    if (this.walkNudge % this.walkNudgePeriod == 0) this.y -= 2;
+    if (this.walkNudge % this.walkNudgePeriod == 1) this.y += 2;
+    this.x += this.direction * this.w.x;
+    setTimeout(this.walk.bind(this), 150);  
+  }
+}
+
+Peep.prototype.startBurning = function() {
+  this.burning = true;
+  this.color = [246, 79, 10];
+  if (!this.walking) {
+    this.walking = true;
+    this.walk();
+  }
+  
+}
 
 // ================ WATER ================
 
@@ -326,6 +372,11 @@ WaterParticle.prototype.collide = function(obj) {
   obj.v.x = (obj.v.x * (obj.size - this.size) + (2 * this.size * this.v.x)) / (obj.size + this.size);
   obj.v.y = (obj.v.y * (obj.size - this.size) + (2 * this.size * this.v.y)) / (obj.size + this.size);
   obj.blinking = true;
+
+  obj.color[0] = stepTo(obj.color[0], 32, 5);
+  obj.color[1] = stepTo(obj.color[0], 118, 5);
+  obj.color[2] = stepTo(obj.color[0], 251, 5);
+  
   this.dead = true;
 };
 
@@ -402,8 +453,9 @@ FireParticle.prototype.draw = function() {
   context.fillStyle = "#f64f0a";
   context.fillRect(this.x, this.y, this.size, this.size);
 };
-FireParticle.prototype.collide = function() {
-  // todo
+FireParticle.prototype.collide = function(obj) {
+  obj.startBurning();
+  this.dead = true;
 };
 
 // ================ AIR ================
@@ -482,8 +534,9 @@ AirParticle.prototype.collide = function() {
 // ================ EARTH ================
 
 function EarthMaker() {
-  this.size = 0;
+  this.sizeMin = 5;
   this.sizeFull = 150;
+  this.size = this.sizeMin;
   this.sequence = [80, 79, 73];
   this.sequenceIndex = 0;
   this.recedeSpeed = 100;
@@ -497,7 +550,6 @@ EarthMaker.prototype.updatePosition = function() {
   }
   
   if (this.size >= this.sizeFull) {
-    this.recedeSpeed = 0;
     this.quake();
   } else if (this.size > 100) {
     this.recedeSpeed = 45;
@@ -509,8 +561,8 @@ EarthMaker.prototype.updatePosition = function() {
 };
 
 EarthMaker.prototype.recede = function() {
-  this.size = Math.max(0, this.size - 2);
   if (this.size < this.sizeFull) {
+    this.size = Math.max(this.sizeMin, this.size - 2);
     setTimeout(this.recede.bind(this), this.recedeSpeed);
   }
 }
@@ -538,10 +590,16 @@ EarthMaker.prototype.quake = function() {
   var self = this;
   setTimeout(function() {
     shaking = false;
-    self.size = 0;
+    self.size = this.sizeMin;
     self.recede();
   }, 6000);
 }
+
+EarthMaker.prototype.sound = function(t) {
+  var a = this.size / this.sizeFull;
+  return a * (Math.sin(60 * t * Math.PI * 2) + Math.sin(100 * t * Math.PI * 2) + Math.sin(120 * t * Math.PI * 2));
+}
+
 
 // ================ AUDIO ================
 
@@ -575,6 +633,7 @@ function withLock(func, ms, key, that) {
   setTimeout(function() { that[key + "-locked"] = false; }, ms);
 }
 
+function stepTo(val, target, step) { return Math.max(target, val + sign(target - val) * step); };
 function sign(n) { return n?n<0?-1:1:0; };
 function modulo(v, n) { return ((v%n)+n)%n; }
 function outOfWorld(p) { return p.x < 0 || p.x > world.width || p.y < 0 || p.y > world.height; }

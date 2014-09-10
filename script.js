@@ -1,4 +1,4 @@
-/* 
+/*
 Here begins a beautiful story...
 
   ██▓███   ▒█████   █     █░▓█████  ██▀███    ██████     ▄████▄   ▒█████   ███▄ ▄███▓ ▄▄▄▄    ██▓ ███▄    █ ▓█████ ▓█████▄
@@ -35,7 +35,7 @@ var mouse = {
 };
 var pressedKeys = {};
 
-// User 
+// User
 var particles = [];
 var peeps = [];
 var maker = null;
@@ -47,35 +47,35 @@ function init() {
 
   canvas.width = world.width;
 	canvas.height = world.height;
-  
+
 	document.addEventListener('mousemove', documentMouseMoveHandler, false);
 	document.addEventListener('mousedown', documentMouseDownHandler, false);
 	document.addEventListener('mouseup', documentMouseUpHandler, false);
 	document.addEventListener('keydown', documentKeyDownHandler, false);
 	document.addEventListener('keyup', documentKeyUpHandler, false);
-  
+
 	function documentMouseMoveHandler(event){
 		mouse.x = event.clientX - (window.innerWidth - world.width) * 0.5 - BORDER_WIDTH;
 		mouse.y = event.clientY - (window.innerHeight - world.height) * 0.5 - BORDER_WIDTH;
 	}
-	
+
 	function documentMouseDownHandler(event){
 		mouse.pressed = true;
 	}
-	
+
 	function documentMouseUpHandler(event) {
 		mouse.pressed = false;
     console.log("M: ", mouse.x, mouse.y);
 	}
-  
+
 	function documentKeyDownHandler(event) {
 	  pressedKeys[event.keyCode] = true;
 	}
-  
+
 	function documentKeyUpHandler(event) {
-		delete pressedKeys[event.keyCode]
-	}  
-  
+		delete pressedKeys[event.keyCode];
+	}
+
   populate();
   animate();
 }
@@ -101,19 +101,19 @@ function populate() {
 function animate() {
 	// Clear the canvas of all old pixel data
 	context.clearRect(0, 0, canvas.width, canvas.height);
-  
+
   for (var i = peeps.length - 1; i >= 0; i--) {
     peeps[i].updatePosition();
     peeps[i].draw();
   }
-  
+
   selectMaker();
-  
+
   if (maker) {
     maker.updatePosition();
     maker.draw();
-  }  
-  
+  }
+
   // Particles
   for (var i = 0; i < particles.length; i++) {
     particles[i].updatePosition();
@@ -128,11 +128,12 @@ function animate() {
 }
 
 function selectMaker() {
-  if (pressedKeys[49]) { withLock(function(){ maker = new WaterMaker() }, 500, "maker-switch", window); }
-  else if (pressedKeys[50]) { withLock(function(){ maker = new FireMaker() }, 500, "maker-switch", window); }
+  if (pressedKeys[49]) { withLock(function(){ maker = new WaterMaker(); }, 500, "maker-switch", window); }
+  else if (pressedKeys[50]) { withLock(function(){ maker = new FireMaker(); }, 500, "maker-switch", window); }
+  else if (pressedKeys[51]) { withlock(function(){ maker = new AirMaker(); }, 500, "maker-switch", window); }
 }
 
-// Basic point 
+// Basic point
 
 function Point(x, y) {
   this.x = x;
@@ -150,7 +151,7 @@ Point.prototype.collidesWith = function(o) {
     ((this.x + this.size) < o.x) ||
     (this.x > (o.x + o.size))
   );
-}
+};
 
 // ================ PEEPS ================
 
@@ -176,7 +177,7 @@ Peep.prototype.updatePosition = function() {
   this.y += this.v.y;
   this.v.x *= 0.9;
   this.v.y *= 0.9;
-}
+};
 
 Peep.prototype.draw = function() {
   context.fillStyle = "rgba(255, 255, 255, " + this.opacity + ")";
@@ -192,17 +193,17 @@ Peep.prototype.draw = function() {
     context.fillRect(eyeX, eyeY, 4, 4);
     context.fillRect(eyeX + this.direction * this.eyeWidth, eyeY, 4, 4);
   }
-}
+};
 
 Peep.prototype.blink = function() {
   this.blinking = !this.blinking;
   setTimeout(this.blink.bind(this), this.blinking ? Math.random()*400 : Math.random()*3000);
-}
+};
 
 // ================ WATER ================
 
 function WaterMaker() {
-	this.x = world.width * Math.random()
+	this.x = world.width * Math.random();
   this.y = world.height;
 	this.velocity = 10;
   this.charging = false;
@@ -226,14 +227,14 @@ WaterMaker.prototype.updatePosition = function() {
   if (md < this.sensorRadius) {
     if (!this.rotationSet) { this.rotation = Math.sign(Math.random() - 0.5); this.rotationSet = true }
     // Linearno po udaljenosti od kursora, min brzina je 4
-    this.velocity = (1 - md / this.sensorRadius) * this.topSpeed + 4 * md / this.sensorRadius; 
+    this.velocity = (1 - md / this.sensorRadius) * this.topSpeed + 4 * md / this.sensorRadius;
   } else if (this.velocity > 1) {
     this.velocity *= 0.9;
   } else {
     this.rotationSet = false;
     this.velocity = 0;
   }
-  
+
   if (mouse.pressed) {
     this.charging = true;
   }
@@ -242,7 +243,7 @@ WaterMaker.prototype.updatePosition = function() {
     this.size = this.sizeMin + (this.sizeMax - this.sizeMin) * (1 + Math.sin(this.sizeAngle)) / 2;
     this.sizeAngle = modulo(this.sizeAngle + 0.3, 2 * Math.PI);
   }
-  
+
   if (this.charging && !mouse.pressed) {
     withLock(this.shoot, 400, "water-shoot", this);
   }
@@ -255,7 +256,7 @@ WaterMaker.prototype.move = function(movement) {
   var dir = this.rotation * (-this.direction.x + this.direction.y);
   var pos = this[a] + dir*movement;
   if (pos < 0) {
-    movement = movement - this[a]; 
+    movement = movement - this[a];
     this[a] = 0;
     this.rotate();
     return movement;
@@ -287,12 +288,12 @@ WaterMaker.prototype.shoot = function() {
     var x = this.x + (Math.random() - 0.5) * 2 * this.size * this.direction.y;
     var y = this.y + (Math.random() - 0.5) * 2 * this.size * this.direction.x;
     var p = new WaterParticle(x, y);
-    var v = 5 + (this.sizeMax - this.size) / this.sizeMax * 10 // speed from 2 to 15
+    var v = 5 + (this.sizeMax - this.size) / this.sizeMax * 10; // speed from 2 to 15
     v *= (1 - Math.random() * 0.2); // Make each one a bit random
     p.v = { x: this.direction.x * v, y: this.direction.y * v };
     particles.push( p );
   }
-}
+};
 WaterMaker.prototype.sound = function(t) {
   var f = this.velocity > 5 ? (this.velocity * 300) : 0;
   return 0.2 * Math.sin(f * t * Math.PI * 2);
@@ -307,17 +308,17 @@ WaterParticle.prototype = new Point();
 WaterParticle.prototype.updatePosition = function() {
   this.x += this.v.x;
   this.y += this.v.y;
-}
+};
 WaterParticle.prototype.draw = function() {
 	context.fillStyle = "#2076f5";
   context.fillRect(this.x, this.y, this.size, this.size);
-}
+};
 WaterParticle.prototype.collide = function(obj) {
   obj.v.x = (obj.v.x * (obj.size - this.size) + (2 * this.size * this.v.x)) / (obj.size + this.size);
-  obj.v.y = (obj.v.y * (obj.size - this.size) + (2 * this.size * this.v.y)) / (obj.size + this.size);  
+  obj.v.y = (obj.v.y * (obj.size - this.size) + (2 * this.size * this.v.y)) / (obj.size + this.size);
   obj.blinking = true;
   this.dead = true;
-}
+};
 
 // ================ FIRE ================
 
@@ -338,14 +339,14 @@ FireMaker.prototype.updatePosition = function() {
   if (pressedKeys[69]) {
     withLock(this.shoot, 1000, "fire-shoot", this);
   }
-  
+
   var ls = this.speed[this.speed[2] ? 1 : 0];
   var rs = this.speed[this.speed[3] ? 1 : 0];
   this.left.x = modulo(this.left.x + ls * Math.sin(this.angle), world.width);
   this.left.y = modulo(this.left.y + ls * Math.cos(this.angle), world.height);
   this.right.x = modulo(this.right.x + rs * Math.cos(this.angle), world.width);
   this.right.y = modulo(this.right.y + rs * Math.sin(this.angle), world.height);
-  
+
   this.angle = modulo(this.angle + 0.1, 2 * Math.PI);
 };
 
@@ -370,7 +371,7 @@ FireMaker.prototype.shoot = function() {
     var p = new FireParticle(x, y);
     particles.push( p );
   }
-}
+};
 
 FireMaker.prototype.sound = function(t) {
   var f1 = this.left.x;
@@ -391,10 +392,10 @@ FireParticle.prototype.updatePosition = function() {
 FireParticle.prototype.draw = function() {
   context.fillStyle = "#f64f0a";
   context.fillRect(this.x, this.y, this.size, this.size);
-}
+};
 FireParticle.prototype.collide = function() {
   // todo
-}
+};
 
 // ================ AIR ================
 
@@ -472,7 +473,7 @@ var audioNodes = {
   src:  actx.createScriptProcessor(4096, 0, 1),
   vol: actx.createGain(),
   dest: actx.destination
-}
+};
 audioNodes.src.onaudioprocess = function(e) {
   if (!maker || !maker.sound) return;
   var ob = e.outputBuffer;
@@ -482,7 +483,7 @@ audioNodes.src.onaudioprocess = function(e) {
       od[s] = maker.sound(actx.currentTime + ob.duration * s / ob.length) || 0;
     }
   }
-}
+};
 
 audioNodes.vol.gain.value = 1; // Change for sound
 audioNodes.src.connect(audioNodes.vol);
@@ -500,14 +501,14 @@ function withLock(func, ms, key, that) {
 function modulo(v, n) { return ((v%n)+n)%n; }
 function outOfWorld(p) { return p.x < 0 || p.x > world.width || p.y < 0 || p.y > world.height; }
 
-Math.sign = function(n) { return n?n<0?-1:1:0 }
+Math.sign = function(n) { return n?n<0?-1:1:0; };
 // shim with setTimeout fallback from http://paulirish.com/2011/requestanimationframe-for-smart-animating/
 window.requestAnimFrame = (function(){
-  return  window.requestAnimationFrame       || 
-          window.webkitRequestAnimationFrame || 
-          window.mozRequestAnimationFrame    || 
-          window.oRequestAnimationFrame      || 
-          window.msRequestAnimationFrame     || 
+  return  window.requestAnimationFrame       ||
+          window.webkitRequestAnimationFrame ||
+          window.mozRequestAnimationFrame    ||
+          window.oRequestAnimationFrame      ||
+          window.msRequestAnimationFrame     ||
           function(callback, element){
             window.setTimeout(callback, 1000 / 60);
           };

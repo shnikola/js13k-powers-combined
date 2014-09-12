@@ -26,6 +26,8 @@ var world = {
 
 var canvas = null;
 var context = null;
+var selectionContext = null;
+var userContext = null;
 
 // User Controls
 var mouse = {
@@ -44,7 +46,9 @@ var particles = [];
 var shaking = false;
 
 var game = {
+  lives: 3,
   score: 0,
+  makerEnabled: [false, false, false, false],
   addScore: function(a) { game.score += a; game.checkScore();},
   checkScore: function() {
     if (game.score === 1) { game.stage2(); } 
@@ -54,7 +58,7 @@ var game = {
   stage1: function() {
     var p = new Peep(world.width / 2 - 25, world.height / 2 - 25, 50, -1);
     peeps.push(p)
-    setTimeout(function() { p.need = 1; p.needCounter = 8 }, 1000);
+    setTimeout(function() { p.need = 1; p.needCounter = 8; game.makerEnabled[0] = true;}, 1000);
   },
   stage2: function() {
     setTimeout(function() {
@@ -66,16 +70,17 @@ var game = {
   },
   stage4: function() {
   }
-}
+};
 
+var makerColors = ["#2096e5", "#f64f0a", "#fff", "#552616"];
 
-function init() {
-  canvas = document.getElementById("canvas");
+function initGame() {
+  canvas = document.getElementById("world");
   context = canvas.getContext('2d');
 
   canvas.width = world.width;
 	canvas.height = world.height;
-
+  
 	document.addEventListener('mousemove', documentMouseMoveHandler, false);
 	document.addEventListener('mousedown', documentMouseDownHandler, false);
 	document.addEventListener('mouseup', documentMouseUpHandler, false);
@@ -107,6 +112,37 @@ function init() {
   animate();
 }
 
+function initMenus() {
+  var cnv = document.getElementById("menu");
+  var ctx = cnv.getContext('2d');
+  
+  cnv.width = 200;
+  cnv.height = world.height;
+  
+  ctx.fillStyle = "#fff";
+  for (var i = 0; i < game.lives; i++) {
+    ctx.fillRect(45 + 45*i, 30, 20, 20);
+  }
+  
+  ctx.fillRect(20, 70, 160, 1);
+  
+  ctx.font = '10px Consolas, monaco, monospace';
+  ctx.textAlign = "center";
+  for (var i = 0; i < 4; i++) {
+    ctx.fillStyle = makerColors[i];
+    ctx.fillRect(30, 100 + i*60, 30, 30);
+    ctx.fillStyle = "#fff";
+    ctx.fillText(i+1, 23, 130 + i*60);
+  }
+  
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(20, 340, 160, 1);
+  
+  ctx.fillStyle = "#fff";
+  ctx.textAlign = "center";
+  ctx.font = '20px Consolas, monaco, monospace';
+  ctx.fillText(game.score, 100, 400);
+}
 
 // TODO: bolji raspored
 
@@ -226,7 +262,7 @@ Peep.prototype.updatePosition = function() {
   
   // Log checking
   if (log) {
-    if (log.burningHealth > 0 && this.distanceTo(log) < 100) { this.fulfilNeed(2); }
+    withLock(this.warmth, 1000, 'warmth', this);
     for (var i = log.flames.length - 1; i >= 0; i--) {
       if (log.flames[i].collidesWith(this)) {
         log.flames[i].collide(this);
@@ -264,6 +300,8 @@ Peep.prototype.updatePosition = function() {
     if (this.w.x > 1) { this.w.x *= 0.8; }
     else { this.w.x = 0; }
   }
+  
+  withLock(this.walk, 150, 'walking', this);
     
   // Final movement
   this.x += this.v.x;
@@ -327,7 +365,6 @@ Peep.prototype.walk = function() {
     if (this.walkNudge % this.walkNudgePeriod == 1) this.y += 2;
     this.x += this.direction * this.w.x;
   }
-  setTimeout(this.walk.bind(this), 150); // moved out of if
 }
 
 Peep.prototype.water = function() {
@@ -353,6 +390,13 @@ Peep.prototype.fire = function() {
   this.w.x = Math.min(15, this.w.x + 5);
   this.fulfilNeed(2);
 }
+
+Peep.prototype.warmth = function() {
+  if (log && log.burningHealth > 0 && this.distanceTo(log) < 100) {
+    this.fulfilNeed(2);
+  } 
+}
+
 
 
 
@@ -818,4 +862,5 @@ window.requestAnimFrame = (function(){
           };
 })();
 
-init();
+initGame();
+initMenus()

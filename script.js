@@ -814,14 +814,15 @@ AirParticle.prototype.draw = function() {
   context.fillStyle = "rgba(63, 220, 214, " + this.alpha + ")";
   this.alpha += this.alphaDelta;
   context.fillRect(this.x, this.y, this.size, this.size);
-  if (alpha < 0 ) this.dead = true;
+  if (this.alpha < 0 ) this.dead = true;
 };
 AirParticle.prototype.updatePosition = function() {
   this.x += this.movementX;
   this.y += this.movementY;
 };
-AirParticle.prototype.collide = function() {
-  //prazan sam
+AirParticle.prototype.collide = function(obj) {
+  obj.v.x += this.movementX;
+  obj.v.y += this.movementY;
 };
 
 

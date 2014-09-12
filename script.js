@@ -276,7 +276,7 @@ Peep.prototype.updatePosition = function() {
   if (this.y < 0) { this.v.y = Math.abs(this.v.y); }
   if (this.y > world.height - this.size) { this.v.y = -Math.abs(this.v.y); }
   
-  // Shaky shaky
+  // Shaky shaky~
   if (shaking) {
     this.blinking = true;
     this.w.x = 0;
@@ -726,12 +726,14 @@ function AirParticle(x, y, movX, movY, alphaDelta){
   this.size = 3;
   this.movementX = movX;
   this.movementY = movY;
+  this.dead = false;
 }
 AirParticle.prototype = new Point();
 AirParticle.prototype.draw = function() {
   context.fillStyle = "rgba(63, 220, 214, " + this.alpha + ")";
   this.alpha += this.alphaDelta;
   context.fillRect(this.x, this.y, this.size, this.size);
+  if (alpha < 0 ) this.dead = true;
 };
 AirParticle.prototype.updatePosition = function() {
   this.x += this.movementX;
@@ -863,4 +865,4 @@ window.requestAnimFrame = (function(){
 })();
 
 initGame();
-initMenus()
+initMenus();

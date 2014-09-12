@@ -22,12 +22,13 @@ var FRAMERATE = 60;
 var world = {
   width: DEFAULT_WIDTH,
   height: DEFAULT_HEIGHT,
+  x: 0,
+  y: 0
 };
 
 var canvas = null;
 var context = null;
-var selectionContext = null;
-var userContext = null;
+var menuContext = null;
 
 // User Controls
 var mouse = {
@@ -38,7 +39,14 @@ var mouse = {
 var pressedKeys = {};
 
 // Objects
-var maker = null;
+var currentMaker = null;
+var makers = [ 
+  { enabled: false, key: 49, color: "#2096e5", constructor: WaterMaker},
+  { enabled: false, key: 50, color: "#f64f0a", constructor: FireMaker},
+  { enabled: false, key: 51, color: "#fff", constructor: AirMaker},
+  { enabled: false, key: 52, color: "#552616", constructor: EarthMaker}
+];
+
 var log = null;
 var peeps = [];
 var particles = [];
@@ -48,7 +56,6 @@ var shaking = false;
 var game = {
   lives: 3,
   score: 0,
-  makerEnabled: [false, false, false, false],
   addScore: function(a) { game.score += a; game.checkScore();},
   checkScore: function() {
     if (game.score === 1) { game.stage2(); } 
@@ -58,7 +65,11 @@ var game = {
   stage1: function() {
     var p = new Peep(world.width / 2 - 25, world.height / 2 - 25, 50, -1);
     peeps.push(p)
-    setTimeout(function() { p.need = 1; p.needCounter = 8; game.makerEnabled[0] = true;}, 1000);
+    setTimeout(function() { 
+      p.need = 1; 
+      p.needCounter = 8; 
+      enableMaker(1);
+    }, 3000);
   },
   stage2: function() {
     setTimeout(function() {
@@ -72,8 +83,6 @@ var game = {
   }
 };
 
-var makerColors = ["#2096e5", "#f64f0a", "#fff", "#552616"];
-
 function initGame() {
   canvas = document.getElementById("world");
   context = canvas.getContext('2d');
@@ -81,15 +90,19 @@ function initGame() {
   canvas.width = world.width;
 	canvas.height = world.height;
   
+  windowResizeHandler();
+  
 	document.addEventListener('mousemove', documentMouseMoveHandler, false);
 	document.addEventListener('mousedown', documentMouseDownHandler, false);
 	document.addEventListener('mouseup', documentMouseUpHandler, false);
 	document.addEventListener('keydown', documentKeyDownHandler, false);
 	document.addEventListener('keyup', documentKeyUpHandler, false);
-
+	
+  window.addEventListener('resize', windowResizeHandler, false);
+  
 	function documentMouseMoveHandler(event){
-		mouse.x = event.clientX - (window.innerWidth - world.width) * 0.5 - BORDER_WIDTH;
-		mouse.y = event.clientY - (window.innerHeight - world.height) * 0.5 - BORDER_WIDTH;
+		mouse.x = event.clientX - world.x - BORDER_WIDTH;
+		mouse.y = event.clientY - world.y - BORDER_WIDTH;
 	}
 
 	function documentMouseDownHandler(event){
@@ -98,6 +111,7 @@ function initGame() {
 
 	function documentMouseUpHandler(event) {
 		mouse.pressed = false;
+    console.log(mouse.x, mouse.y)
 	}
 
 	function documentKeyDownHandler(event) {
@@ -107,6 +121,13 @@ function initGame() {
 	function documentKeyUpHandler(event) {
 		delete pressedKeys[event.keyCode];
 	}
+  
+  function windowResizeHandler(event) {
+    var rect = canvas.getBoundingClientRect();
+    world.x = rect.left;
+    world.y = rect.top;    
+  }
+  
 
   game.stage1();
   animate();
@@ -114,35 +135,90 @@ function initGame() {
 
 function initMenus() {
   var cnv = document.getElementById("menu");
-  var ctx = cnv.getContext('2d');
+  menuContext = cnv.getContext('2d');
   
   cnv.width = 200;
   cnv.height = world.height;
   
-  ctx.fillStyle = "#fff";
-  for (var i = 0; i < game.lives; i++) {
-    ctx.fillRect(45 + 45*i, 30, 20, 20);
-  }
+  menuContext.fillStyle = "#fff";
+  menuContext.fillRect(20, 70, 160, 1);
+  menuContext.fillRect(20, 340, 160, 1);
   
-  ctx.fillRect(20, 70, 160, 1);
-  
-  ctx.font = '10px Consolas, monaco, monospace';
-  ctx.textAlign = "center";
-  for (var i = 0; i < 4; i++) {
-    ctx.fillStyle = makerColors[i];
-    ctx.fillRect(30, 100 + i*60, 30, 30);
-    ctx.fillStyle = "#fff";
-    ctx.fillText(i+1, 23, 130 + i*60);
-  }
-  
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(20, 340, 160, 1);
-  
-  ctx.fillStyle = "#fff";
-  ctx.textAlign = "center";
-  ctx.font = '20px Consolas, monaco, monospace';
-  ctx.fillText(game.score, 100, 400);
+  drawMenu();
+  enableMaker(1)
+  enableMaker(2)
+  enableMaker(3)
+    enableMaker(4)
 }
+
+function enableMaker(id) {
+  var i = id - 1;
+  makers[i].enabled = true;
+  menuContext.font = '10px Consolas, monaco, monospace';
+  menuContext.textAlign = "center";
+  menuContext.fillStyle = makers[i].color;
+  menuContext.fillRect(30, 100 + i*60, 30, 30);
+  menuContext.fillStyle = "#fff";
+  menuContext.fillText(i+1, 23, 130 + i*60);
+  
+  if (id === 1) {
+    drawMouseButton(80, 120);
+  } else if (id === 2){
+    drawKeyButton(80,  162, "W");
+    drawKeyButton(115, 162, "E");
+    drawKeyButton(150, 162, "R");
+  } else if (id === 3) {
+    drawMouseButton(80, 240);
+  } else if (id === 4) {
+    drawKeyButton(80,  282, "I");
+    drawKeyButton(115, 282, "O");
+  }
+  
+  function drawMouseButton(x, y) {
+    menuContext.font = '16px Consolas, monaco, monospace';
+    menuContext.fillStyle = "#ccc";
+    menuContext.textAlign = "left";
+    menuContext.fillText("Mouse", x, y);
+  }
+
+  function drawKeyButton(x, y, key) {
+    menuContext.font = '14px Consolas, monaco, monospace';
+    menuContext.textAlign = "center";  
+    menuContext.strokeStyle = "#fff"
+    menuContext.beginPath();
+    menuContext.rect(x, y, 26, 26);
+    menuContext.stroke();
+    menuContext.fillStyle = "#ccc";
+    menuContext.fillText(key, x + 13, y + 18);
+  }
+}
+
+function selectMakerMenu(id) {
+  menuContext.fillStyle = "#f9ee90";
+  for (var i = 0; i < makers.length; i++) {
+    menuContext.clearRect(63, 100 + i * 60, 3, 30);
+  }
+  menuContext.fillRect(63, 100 + (id - 1)*60, 3, 30);
+}
+
+function drawMenu() {
+	menuContext.clearRect(0, 30, 200, 20);
+  
+  menuContext.fillStyle = "#fff";
+  for (var i = 0; i < game.lives; i++) {
+    menuContext.fillRect(45 + 45*i, 30, 20, 20);
+  }
+  
+	menuContext.clearRect(0, 380, 200, 25);
+  
+  menuContext.fillStyle = "#fff";
+  menuContext.textAlign = "center";
+  menuContext.font = '20px Consolas, monaco, monospace';
+  menuContext.fillText(game.score, 100, 400);
+  
+  requestAnimFrame(drawMenu);
+}
+
 
 // TODO: bolji raspored
 
@@ -174,9 +250,9 @@ function animate() {
 
   selectMaker();
 
-  if (maker) {
-    maker.updatePosition();
-    maker.draw();
+  if (currentMaker) {
+    currentMaker.updatePosition();
+    currentMaker.draw();
   }
   
   if (log) {
@@ -197,10 +273,15 @@ function animate() {
 }
 
 function selectMaker() {
-  if (pressedKeys[49]) { withLock(function(){ maker = new WaterMaker(); }, 500, "maker-switch", window); }
-  else if (pressedKeys[50]) { withLock(function(){ maker = new FireMaker(); }, 500, "maker-switch", window); }
-  else if (pressedKeys[51]) { withLock(function(){ maker = new AirMaker(); }, 500, "maker-switch", window); }
-  else if (pressedKeys[52]) { withLock(function(){ maker = new EarthMaker(); }, 500, "maker-switch", window); }
+  for (var i = 0; i < makers.length; i++) {
+    if (makers[i].enabled && pressedKeys[makers[i].key]) {
+      withLock(function() { 
+        currentMaker = new makers[i].constructor();
+        selectMakerMenu(i + 1)
+      }, 500, "maker-switch", window);
+      break;
+    }
+  }
 }
 
 // Basic point
@@ -753,9 +834,9 @@ function EarthMaker() {
   this.sequence = [79, 73]; // [80, 79, 73]
   this.sequenceIndex = 0;
   this.recedeSpeed = 100;
-  this.recede();
 }
 EarthMaker.prototype.updatePosition = function() {
+  console.log(this.size, this.recedeSpeed);
   var nextSeq = modulo(this.sequenceIndex + 1, this.sequence.length);
   if (pressedKeys[this.sequence[this.sequenceIndex]] && !pressedKeys[this.sequence[nextSeq]]) {
     this.sequenceIndex = nextSeq;
@@ -771,12 +852,13 @@ EarthMaker.prototype.updatePosition = function() {
   } else {
     this.recedeSpeed = 100;
   }
+  
+  withLock(this.recede, this.recedeSpeed, "receding", this);
 };
 
 EarthMaker.prototype.recede = function() {
   if (this.size < this.sizeFull) {
     this.size = Math.max(this.sizeMin, this.size - 2);
-    setTimeout(this.recede.bind(this), this.recedeSpeed);
   }
 }
 
@@ -803,14 +885,13 @@ EarthMaker.prototype.quake = function() {
   var self = this;
   setTimeout(function() {
     shaking = false;
-    self.size = this.sizeMin;
-    self.recede();
+    self.size = self.sizeMin;
   }, 6000);
 }
 
 EarthMaker.prototype.sound = function(t) {
   var a = this.size / this.sizeFull;
-  return a * (Math.sin(60 * t * Math.PI * 2) + Math.sin(100 * t * Math.PI * 2) + Math.sin(120 * t * Math.PI * 2));
+  return a * (Math.sin(60 * t * Math.PI * 2) + Math.sin(100 * t * Math.PI * 2) + Math.sin(160 * t * Math.PI * 2));
 }
 
 
@@ -823,12 +904,12 @@ var audioNodes = {
   dest: actx.destination
 };
 audioNodes.src.onaudioprocess = function(e) {
-  if (!maker || !maker.sound) return;
+  if (!currentMaker || !currentMaker.sound) return;
   var ob = e.outputBuffer;
   for (var c = 0; c < ob.numberOfChannels; c++) {
     var od = ob.getChannelData(c);
     for (var s = 0; s < ob.length; s++) {
-      od[s] = maker.sound(actx.currentTime + ob.duration * s / ob.length) || 0;
+      od[s] = currentMaker.sound(actx.currentTime + ob.duration * s / ob.length) || 0;
     }
   }
 };

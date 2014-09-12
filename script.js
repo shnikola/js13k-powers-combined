@@ -20,8 +20,8 @@ var BORDER_WIDTH = 0;
 var FRAMERATE = 60;
 
 var world = {
-	width: DEFAULT_WIDTH,
-	height: DEFAULT_HEIGHT
+  width: DEFAULT_WIDTH,
+  height: DEFAULT_HEIGHT,
 };
 
 var canvas = null;
@@ -35,13 +35,39 @@ var mouse = {
 };
 var pressedKeys = {};
 
-// User
-var particles = [];
-var peeps = [];
+// Objects
 var maker = null;
-var makerSelectable = true;
+var log = null;
+var peeps = [];
+var particles = [];
 
 var shaking = false;
+
+var game = {
+  score: 0,
+  addScore: function(a) { game.score += a; game.checkScore();},
+  checkScore: function() {
+    if (game.score === 1) { game.stage2(); } 
+    else if (game.score === 2) { game.stage3(); } 
+    else if (game.score === 4) { game.stage4(); } 
+  },
+  stage1: function() {
+    var p = new Peep(world.width / 2 - 25, world.height / 2 - 25, 50, -1);
+    peeps.push(p)
+    setTimeout(function() { p.need = 1; p.needCounter = 8 }, 1000);
+  },
+  stage2: function() {
+    setTimeout(function() {
+      log = new Log(peeps[0].x - 80, peeps[0].y + 38);
+      setTimeout(function() { peeps[0].need = 2; peeps[0].needCounter = 8; }, 2000);
+    }, 5000);
+  },
+  stage3: function() {
+  },
+  stage4: function() {
+  }
+}
+
 
 function init() {
   canvas = document.getElementById("canvas");
@@ -77,9 +103,10 @@ function init() {
 		delete pressedKeys[event.keyCode];
 	}
 
-  populate();
+  game.stage1();
   animate();
 }
+
 
 // TODO: bolji raspored
 
@@ -115,6 +142,11 @@ function animate() {
     maker.updatePosition();
     maker.draw();
   }
+  
+  if (log) {
+    log.updatePosition();
+    log.draw();    
+  }
 
   // Particles
   for (var i = particles.length - 1; i >= 0; i--) {
@@ -149,9 +181,9 @@ Point.prototype.distanceTo = function(p) {
 Point.prototype.collidesWith = function(o) {
   return !(
     ((this.y + this.size) < (o.y)) ||
-    (this.y > (o.y + o.size)) ||
+    (this.y > (o.y + (o.height || o.size))) ||
     ((this.x + this.size) < o.x) ||
-    (this.x > (o.x + o.size))
+    (this.x > (o.x + (o.width || o.size)))
   );
 };
 
@@ -161,22 +193,25 @@ function Peep(x, y, s, d) {
   this.x = x;
   this.y = y;
   this.v = {x: 0, y: 0, max: 20};
-  this.w = {x: 5, y: 0};
   this.size = s || 10;
   
-  this.direction = d || Math.random() > 0.5 ? -1 : 1;
-  this.walking = Math.random() > 0.2;
+  this.direction = d || (Math.random() > 0.5 ? -1 : 1);
+  this.w = {x: 0, y: 0};
   this.walkNudge = 0;
   this.walkNudgePeriod = Math.round(5 + Math.random() * 5);
   this.walk();
   
-  this.eyeWidth = Math.max(this.size / 3 * Math.random(), this.size / 4);
+  this.eyeWidth = this.size/4;
   this.blinking = true;
   this.blink();
   
-  this.burning = false;
+  this.need = null;
+  this.needCounter = 0;
   
-  this.baseColor = Math.round(100 + Math.random() * 155);
+  this.burningHealth = 0;
+  this.flames = [];
+  
+  this.baseColor = Math.round(150 + Math.random() * 105);
   this.color = [this.baseColor, this.baseColor, this.baseColor];
 }
 Peep.prototype = new Point();
@@ -189,6 +224,16 @@ Peep.prototype.updatePosition = function() {
     }
   }
   
+  // Log checking
+  if (log) {
+    if (log.burningHealth > 0 && this.distanceTo(log) < 100) { this.fulfilNeed(2); }
+    for (var i = log.flames.length - 1; i >= 0; i--) {
+      if (log.flames[i].collidesWith(this)) {
+        log.flames[i].collide(this);
+      }
+    }
+  }
+  
   // Wall bumping
   if (this.x < 0) { this.direction = 1; this.v.x = Math.abs(this.v.x); }
   if (this.x > world.width - this.size) { this.direction = -1; this.v.x = -Math.abs(this.v.x); }
@@ -198,13 +243,26 @@ Peep.prototype.updatePosition = function() {
   // Shaky shaky
   if (shaking) {
     this.blinking = true;
-    this.x += sign(Math.random() - 0.5);
-    this.y += sign(Math.random() - 0.5);
+    this.w.x = 0;
+    this.x += sign(simRand());
+    this.y += sign(simRand());
   }
   
   // Burning
-  if (this.burning) {
-    this.w.x = 25;
+  if (this.burningHealth > 0) {
+    this.blinking = true;
+    var q = Math.max(this.burningHealth - this.flames.length, 0);
+    while(q--) { this.flames.push(new FireParticle(this.x + this.size/2, this.y, 3 + Math.random() * 2)); }
+  }
+  for (var i = this.flames.length - 1; i >= 0; i--) {
+    this.flames[i].updatePosition();
+    if (this.flames[i].dead) { this.flames.splice(i, 1); }
+  }
+  
+  // Walking
+  if (this.burningHealth <= 0) {
+    if (this.w.x > 1) { this.w.x *= 0.8; }
+    else { this.w.x = 0; }
   }
     
   // Final movement
@@ -228,6 +286,33 @@ Peep.prototype.draw = function() {
     context.fillRect(eyeX, eyeY, 4, 4);
     context.fillRect(eyeX + this.direction * this.eyeWidth, eyeY, 4, 4);
   }
+  if (this.burningHealth >= 0) {
+    // TODO: open mouth
+    //context.fillRect(eyeX, this.y + this.size -2 , this.direction * (this.eyeWidth - 4) , -10);
+  }
+  if (this.need) this.drawNeed();
+  for (var i = this.flames.length - 1; i >= 0; i--) {
+    this.flames[i].draw();
+  }
+};
+
+Peep.prototype.drawNeed = function() {
+  var bubbleSize = 18;
+  var bubbleX = this.x + this.size/2 - bubbleSize/2;
+  var bubbleY = this.y - 10;
+  context.fillStyle = "rgba(255, 255, 255, 0.3)";
+  context.fillRect(bubbleX, bubbleY, bubbleSize, -bubbleSize);
+  context.fillRect(this.x + this.size/2 - 1, bubbleY + 2, 4, 4);
+  var dropSize = this.needCounter;
+  var dropX = this.x + this.size/2 - dropSize/2;
+  var dropY = bubbleY - 3;
+  context.fillStyle = this.needColor();
+  context.fillRect(dropX, dropY, dropSize, -dropSize);
+};
+
+Peep.prototype.needColor = function() {
+  if      (this.need === 1) return "#2076f5";
+  else if (this.need === 2) return "#f64f0a";
 };
 
 Peep.prototype.blink = function() {
@@ -236,23 +321,109 @@ Peep.prototype.blink = function() {
 };
 
 Peep.prototype.walk = function() {
-  if (this.walking) {
+  if (this.w.x > 0) {
     this.walkNudge = modulo(this.walkNudge + 1, this.walkNudgePeriod);
     if (this.walkNudge % this.walkNudgePeriod == 0) this.y -= 2;
     if (this.walkNudge % this.walkNudgePeriod == 1) this.y += 2;
     this.x += this.direction * this.w.x;
-    setTimeout(this.walk.bind(this), 150);  
+  }
+  setTimeout(this.walk.bind(this), 150); // moved out of if
+}
+
+Peep.prototype.water = function() {
+  this.blinking = true;
+  this.burningHealth = Math.max(0, this.burningHealth-1);
+  this.fulfilNeed(1);
+  //obj.color[0] = stepTo(obj.color[0], 32, 5);
+  //obj.color[1] = stepTo(obj.color[0], 118, 5);
+  //obj.color[2] = stepTo(obj.color[0], 251, 5);
+}
+
+Peep.prototype.fulfilNeed = function(id) {
+  if (this.need !== id) return;
+  this.needCounter--;
+  if (this.needCounter <= 0) {
+    this.need = null;
+    game.addScore(1);
   }
 }
 
-Peep.prototype.startBurning = function() {
-  this.burning = true;
-  this.color = [246, 79, 10];
-  if (!this.walking) {
-    this.walking = true;
-    this.walk();
+Peep.prototype.fire = function() {
+  this.burningHealth = Math.min(10, this.burningHealth + 1);
+  this.w.x = Math.min(15, this.w.x + 5);
+  this.fulfilNeed(2);
+}
+
+
+
+function Log(x, y) {
+  this.x = x;
+  this.y = y;
+  this.size = 50;
+  this.width = 50;
+  this.height = 12;
+  this.v = {x: 0, y: 0};
+  this.burningHealth = 0;
+  this.flames = [];
+}
+
+Log.prototype.updatePosition = function() {
+  
+  // Collision with particles
+  for (var i = particles.length - 1; i >= 0; i--) {
+    if (particles[i].collidesWith(this)) {
+      particles[i].collide(this);
+    }
   }
   
+  // Wall bumping
+  if (this.x < 0) { this.v.x = Math.abs(this.v.x); }
+  if (this.x > world.width - this.width) { this.v.x = -Math.abs(this.v.x); }
+  if (this.y < 0) { this.v.y = Math.abs(this.v.y); }
+  if (this.y > world.height - this.height) { this.v.y = -Math.abs(this.v.y); }
+
+  // Shaky shaky
+  if (shaking) {
+    this.x += sign(simRand());
+    this.y += sign(simRand());
+  }
+  
+  // Burning
+  if (this.burningHealth > 0) {
+    var q = Math.max(this.burningHealth - this.flames.length, 0);
+    while(q--) { 
+      var p = new FireParticle(this.x + this.width/2 + simRand() * 20, this.y, 3 + Math.random() * 2)
+      this.flames.push(p); 
+    }
+  }
+  for (var i = this.flames.length - 1; i >= 0; i--) {
+    this.flames[i].updatePosition();
+    if (this.flames[i].dead) { this.flames.splice(i, 1); }
+  }
+      
+  // Final movement
+  this.x += this.v.x;
+  this.y += this.v.y;
+  this.v.x *= 0.8;
+  this.v.y *= 0.8;
+}
+
+Log.prototype.draw = function() {
+  context.fillStyle = "#793f1d";
+  context.fillRect(this.x, this.y, this.width, this.height);
+  context.fillRect(this.x + this.width/4, this.y, 8, -8);
+  for (var i = this.flames.length - 1; i >= 0; i--) {
+    this.flames[i].draw();
+  }
+}
+
+Log.prototype.water = function() {
+  // TODO: add smoke
+  this.burningHealth = Math.max(0, this.burningHealth-1);
+}
+
+Log.prototype.fire = function() {
+  this.burningHealth = Math.min(30, this.burningHealth + 1);
 }
 
 // ================ WATER ================
@@ -270,7 +441,7 @@ function WaterMaker() {
 	this.sizeMin = 10;
   this.sizeMax = 40;
 	this.sizeAngle = 0;
-	this.size = this.sizeMin;
+	this.size = 20;
 }
 WaterMaker.prototype = new Point();
 WaterMaker.prototype.updatePosition = function() {
@@ -280,7 +451,7 @@ WaterMaker.prototype.updatePosition = function() {
   }
   var md = this.distanceTo(mouse);
   if (md < this.sensorRadius) {
-    if (!this.rotationSet) { this.rotation = sign(Math.random() - 0.5); this.rotationSet = true; }
+    if (!this.rotationSet) { this.rotation = sign(simRand()); this.rotationSet = true; }
     // Linearno po udaljenosti od kursora, min brzina je 4
     this.velocity = (1 - md / this.sensorRadius) * this.topSpeed + 4 * md / this.sensorRadius;
   } else if (this.velocity > 1) {
@@ -340,8 +511,8 @@ WaterMaker.prototype.shoot = function() {
   this.charging = false;
   var q = 10;
   while (--q >= 0) {
-    var x = this.x + (Math.random() - 0.5) * 2 * this.size * this.direction.y;
-    var y = this.y + (Math.random() - 0.5) * 2 * this.size * this.direction.x;
+    var x = this.x + simRand() * 2 * this.size * this.direction.y;
+    var y = this.y + simRand() * 2 * this.size * this.direction.x;
     var p = new WaterParticle(x, y);
     var v = 5 + (this.sizeMax - this.size) / this.sizeMax * 10; // speed from 2 to 15
     v *= (1 - Math.random() * 0.2); // Make each one a bit random
@@ -371,12 +542,7 @@ WaterParticle.prototype.draw = function() {
 WaterParticle.prototype.collide = function(obj) {
   obj.v.x = (obj.v.x * (obj.size - this.size) + (2 * this.size * this.v.x)) / (obj.size + this.size);
   obj.v.y = (obj.v.y * (obj.size - this.size) + (2 * this.size * this.v.y)) / (obj.size + this.size);
-  obj.blinking = true;
-
-  obj.color[0] = stepTo(obj.color[0], 32, 5);
-  obj.color[1] = stepTo(obj.color[0], 118, 5);
-  obj.color[2] = stepTo(obj.color[0], 251, 5);
-  
+  obj.water();
   this.dead = true;
 };
 
@@ -439,22 +605,23 @@ FireMaker.prototype.sound = function(t) {
   return 0.2 * Math.sin(f1 * t * Math.PI * 2) + 0.2 * Math.sin(f2 * t * Math.PI * 2);
 };
 
-function FireParticle(x, y) {
+function FireParticle(x, y, s) {
   this.x = x;
   this.y = y;
-  this.size = 3;
+  this.size = s || 3;
 }
 FireParticle.prototype = new Point();
 FireParticle.prototype.updatePosition = function() {
-  this.x += (Math.random() - 0.5) * 2;
-  this.y += (Math.random() - 0.2) * 2;
+  this.x += simRand() * 2;
+  this.y += (Math.random() - 0.8) * 2;
+  this.dead = (Math.random() < 0.1);
 };
 FireParticle.prototype.draw = function() {
   context.fillStyle = "#f64f0a";
   context.fillRect(this.x, this.y, this.size, this.size);
 };
 FireParticle.prototype.collide = function(obj) {
-  obj.startBurning();
+  obj.fire();
   this.dead = true;
 };
 
@@ -476,7 +643,7 @@ AirMaker.prototype.updatePosition = function() {
   this.y = mouse.y;
 
   if (mouse.pressed) {
-      this.readyToShoot = true;
+    this.readyToShoot = true;
   }
 
   if (!mouse.pressed) {
@@ -537,7 +704,7 @@ function EarthMaker() {
   this.sizeMin = 5;
   this.sizeFull = 150;
   this.size = this.sizeMin;
-  this.sequence = [80, 79, 73];
+  this.sequence = [79, 73]; // [80, 79, 73]
   this.sequenceIndex = 0;
   this.recedeSpeed = 100;
   this.recede();
@@ -633,6 +800,7 @@ function withLock(func, ms, key, that) {
   setTimeout(function() { that[key + "-locked"] = false; }, ms);
 }
 
+function simRand() { return Math.random() - 0.5; }
 function stepTo(val, target, step) { return Math.max(target, val + sign(target - val) * step); };
 function sign(n) { return n?n<0?-1:1:0; };
 function modulo(v, n) { return ((v%n)+n)%n; }

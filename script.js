@@ -777,6 +777,15 @@ AirMaker.prototype = new Point();
 AirMaker.prototype.draw = function() {
   context.fillStyle = "#5BDBE0";
   context.fillRect(this.x, this.y, 1, 1);
+  //just for debuggin
+  if (this.mousePressStarted){
+    context.strokeStyle="blue";
+    context.lineWidth = 2;
+    context.beginPath();
+    context.moveTo(this.pressOrigin.x, this.pressOrigin.y);
+    context.lineTo(mouse.x, mouse.y);
+    context.stroke();
+  }
 };
 AirMaker.prototype.updatePosition = function() {
   this.x = mouse.x;
@@ -794,22 +803,18 @@ AirMaker.prototype.updatePosition = function() {
    	  var shootPoint = new Point(mouse.x, mouse.y);
       var length = shootPoint.distanceTo(this.pressOrigin);	
       this.mousePressStarted = false;
-      this.shoot(-0.13 + (0.02 * length/100));
+      this.shoot(-0.13 + (0.02 * length/100), shootPoint);
     }
   }
 
 };
-AirMaker.prototype.shoot = function(life, spread) {
+AirMaker.prototype.shoot = function(life, shootPoint) {
   console.log("life:" + life);
   for(var i = 0; i < 20 ; i++){
-    var prefixz = [1, 1];
-    for (var j = 0; j < prefixz.length; j++){
-      if (Math.random() > 0.5) { prefixz[j] = -1; }
-    }
 
-    var airP = new AirParticle(mouse.x, mouse.y,
-                                prefixz[0] * Math.random() * 5,
-                                prefixz[1] * Math.random() * 5, life);
+    var airP = new AirParticle(this.pressOrigin.x, this.pressOrigin.y,
+                                (shootPoint.x - this.pressOrigin.x) * 0.05,
+                                (shootPoint.y - this.pressOrigin.y) * 0.05, life);
     particles.push(airP);
   }
 };
@@ -842,8 +847,9 @@ AirParticle.prototype.updatePosition = function() {
   this.y += this.movementY;
 };
 AirParticle.prototype.collide = function(obj) {
-  obj.v.x += this.movementX;
-  obj.v.y += this.movementY;
+  console.log("push:" + (-0.2/this.alphaDelta));
+  obj.v.x += 0.2 * -0.2/this.alphaDelta;
+  obj.v.y += 0.2 * -0.2/this.alphaDelta;
 };
 
 

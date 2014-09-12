@@ -55,6 +55,10 @@ var shaking = false;
 
 var game = {
   lives: 3,
+  loseLife: function() { 
+    game.lives--; 
+    if (game.lives <= 0) lose();
+  },
   score: 0,
   addScore: function(a) { game.score += a; game.checkScore();},
   checkScore: function() {
@@ -80,6 +84,9 @@ var game = {
   stage3: function() {
   },
   stage4: function() {
+  },
+  lose: function() {
+    
   }
 };
 
@@ -243,9 +250,12 @@ function animate() {
 	// Clear the canvas of all old pixel data
 	context.clearRect(0, 0, canvas.width, canvas.height);
 
-  for (var i = 0; i < peeps.length; i++) {
+  for (var i = peeps.length - 1; i >= 0; i--) {
     peeps[i].updatePosition();
     peeps[i].draw();
+    if (peeps[i].dead) {
+      peeps.splice(i, 1);
+    }
   }
 
   selectMaker();
@@ -311,6 +321,7 @@ function Peep(x, y, s, d) {
   this.y = y;
   this.v = {x: 0, y: 0, max: 20};
   this.size = s || 10;
+  this.health = 255;
   
   this.direction = d || (Math.random() > 0.5 ? -1 : 1);
   this.w = {x: 0, y: 0};
@@ -327,11 +338,9 @@ function Peep(x, y, s, d) {
   
   this.burningHealth = 0;
   this.flames = [];
-  
-  this.baseColor = Math.round(150 + Math.random() * 105);
-  this.color = [this.baseColor, this.baseColor, this.baseColor];
 }
 Peep.prototype = new Point();
+
 Peep.prototype.updatePosition = function() {
   
   // Collision with particles
@@ -370,6 +379,7 @@ Peep.prototype.updatePosition = function() {
     this.blinking = true;
     var q = Math.max(this.burningHealth - this.flames.length, 0);
     while(q--) { this.flames.push(new FireParticle(this.x + this.size/2, this.y, 3 + Math.random() * 2)); }
+    withLock(this.hurt, 500, 'huting', this);
   }
   for (var i = this.flames.length - 1; i >= 0; i--) {
     this.flames[i].updatePosition();
@@ -392,16 +402,15 @@ Peep.prototype.updatePosition = function() {
 };
 
 Peep.prototype.draw = function() {
-  context.fillStyle = "rgb(" + this.color[0] + ", " + this.color[1] + ", " + this.color[2] + ")";
+  context.fillStyle = "rgb(" + this.health + ", " + this.health + ", " + this.health + ")";
   context.fillRect(this.x, this.y, this.size, this.size);
   var eyeX = this.x + this.size/2 + this.direction * this.size/8;
   var eyeY = this.y + this.size*2/3;
+  context.fillStyle = this.health > 100 ? "#000" : "#fff";
   if (this.blinking) {
-    context.fillStyle = "#000";
     context.fillRect(eyeX, eyeY + 3, 4, 1);
     context.fillRect(eyeX + this.direction * this.eyeWidth, eyeY + 3, 4, 1);
   } else {
-    context.fillStyle = "#000";
     context.fillRect(eyeX, eyeY, 4, 4);
     context.fillRect(eyeX + this.direction * this.eyeWidth, eyeY, 4, 4);
   }
@@ -478,8 +487,13 @@ Peep.prototype.warmth = function() {
   } 
 }
 
-
-
+Peep.prototype.hurt = function() {
+  this.health = Math.max(0, this.health - 10);
+  if (!this.dead && this.health == 0) {
+    this.dead = true;
+    game.loseLife();
+  }
+}
 
 function Log(x, y) {
   this.x = x;

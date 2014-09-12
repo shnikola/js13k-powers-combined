@@ -278,7 +278,7 @@ function animate() {
       particles.splice(i, 1);
     }
   }
-
+  //console.log("x:" + mouse.x + " y:" + mouse.y);
   requestAnimFrame(animate);
 }
 
@@ -770,7 +770,8 @@ function AirMaker() {
   this.x = 4;
   this.y = 4;
   this.size = 1;
-  this.readyToShoot = false;
+  this.pressOrigin = null;
+  this.mousePressStarted = false;
 }
 AirMaker.prototype = new Point();
 AirMaker.prototype.draw = function() {
@@ -782,18 +783,24 @@ AirMaker.prototype.updatePosition = function() {
   this.y = mouse.y;
 
   if (mouse.pressed) {
-    this.readyToShoot = true;
+    if (!this.mousePressStarted){
+      this.pressOrigin = new Point(mouse.x, mouse.y);
+      this.mousePressStarted = true;
+    }
   }
 
   if (!mouse.pressed) {
-    if (this.readyToShoot) {
-      this.shoot();
+    if (this.mousePressStarted) { 
+   	  var shootPoint = new Point(mouse.x, mouse.y);
+      var length = shootPoint.distanceTo(this.pressOrigin);	
+      this.mousePressStarted = false;
+      this.shoot(-0.13 + (0.02 * length/100));
     }
-    this.readyToShoot = false;
   }
 
 };
-AirMaker.prototype.shoot = function() {
+AirMaker.prototype.shoot = function(life, spread) {
+  console.log("life:" + life);
   for(var i = 0; i < 20 ; i++){
     var prefixz = [1, 1];
     for (var j = 0; j < prefixz.length; j++){
@@ -802,15 +809,15 @@ AirMaker.prototype.shoot = function() {
 
     var airP = new AirParticle(mouse.x, mouse.y,
                                 prefixz[0] * Math.random() * 5,
-                                prefixz[1] * Math.random() * 5, -0.05);
+                                prefixz[1] * Math.random() * 5, life);
     particles.push(airP);
   }
 };
 
 AirMaker.prototype.sound = function(t) {
-  var f1 = Math.round(mouse.x/10)*10;
-  var f2 = Math.round(mouse.y/10)*10;
-  return 0.2 * Math.sin(f1 * t * Math.PI * 2) + 0.2 * Math.sin(f2 * t * Math.PI * 2);
+  //var f1 = Math.round(mouse.x/10)*10;
+  //var f2 = Math.round(mouse.y/10)*10;
+  //return 0.2 * Math.sin(f1 * t * Math.PI * 2) + 0.2 * Math.sin(f2 * t * Math.PI * 2);
 };
 
 function AirParticle(x, y, movX, movY, alphaDelta){

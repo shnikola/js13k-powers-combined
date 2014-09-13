@@ -44,7 +44,7 @@ var currentMaker = null;
 var makers = [ 
   { enabled: false, key: 49, color: "#2096e5", constructor: WaterMaker},
   { enabled: false, key: 50, color: "#f64f0a", constructor: FireMaker},
-  { enabled: false, key: 51, color: "#fff", constructor: AirMaker},
+  { enabled: false, key: 51, color: "#5BDBE0", constructor: AirMaker},
   { enabled: false, key: 52, color: "#552616", constructor: EarthMaker}
 ];
 
@@ -255,56 +255,64 @@ function drawMenu() {
 function animate() {
 	// Clear the canvas of all old pixel data
 	
-  if (pressedKeys[80] || pressedKeys[32]){
+  if (pressedKeys[80] || pressedKeys[32]) {
+    withLock(pause, 200, 'pause-pressed');
+  }
+  
+  if (paused) {
+    requestAnimFrame(animate);
+    return;
+  }
+  
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  for (var i = peeps.length - 1; i >= 0; i--) {
+    peeps[i].updatePosition();
+    peeps[i].draw();
+    if (peeps[i].dead) {
+      peeps.splice(i, 1);
+    }
+   }
+
+  if (peepPopulation > peeps.length) {
     withLock(function() {
-      paused = !paused;
-    }, 200, 'just waiting', this);
+      setTimeout(function() { peeps.push(new Peep()); }, 400 + Math.random() * 800);
+    }, 2000, "peep-born");
   }
-  if (!paused){
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    for (var i = peeps.length - 1; i >= 0; i--) {
-      peeps[i].updatePosition();
-      peeps[i].draw();
-      if (peeps[i].dead) {
-        peeps.splice(i, 1);
-      }
-     }
-  
-    if (peepPopulation > peeps.length) {
-      withLock(function() {
-        setTimeout(function() { peeps.push(new Peep()); }, 400 + Math.random() * 800);
-      }, 2000, "peep-born");
-    }
 
-    selectMaker();
+  selectMaker();
 
-    if (currentMaker) {
-      currentMaker.updatePosition();
-      currentMaker.draw();
-    }
-  
-    if (log) {
-      log.updatePosition();
-      log.draw();    
-    }
-
-    // Particles
-    for (var i = particles.length - 1; i >= 0; i--) {
-      particles[i].updatePosition();
-      particles[i].draw();
-      if (particles[i].dead || outOfWorld(particles[i])) {
-        particles.splice(i, 1);
-      }
-    }
-    //console.log("x:" + mouse.x + " y:" + mouse.y);  
+  if (currentMaker) {
+    currentMaker.updatePosition();
+    currentMaker.draw();
   }
-  else {
+
+  if (log) {
+    log.updatePosition();
+    log.draw();    
+  }
+
+  // Particles
+  for (var i = particles.length - 1; i >= 0; i--) {
+    particles[i].updatePosition();
+    particles[i].draw();
+    if (particles[i].dead || outOfWorld(particles[i])) {
+      particles.splice(i, 1);
+    }
+  }
+
+  requestAnimFrame(animate);
+}
+
+function pause() {
+  paused = !paused;
+  if (paused) {
+    context.fillStyle = "rgba(0, 0, 0, 0.5)"
+    context.fillRect(0, 0, canvas.width, canvas.height);
     context.font = '16px Consolas, monaco, monospace';
     context.fillStyle = "#ccc";
     context.textAlign = "center";
     context.fillText("Paused", 320, 240);
   }
-  requestAnimFrame(animate);
 }
 
 function selectMaker() {

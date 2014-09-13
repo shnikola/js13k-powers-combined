@@ -37,6 +37,7 @@ var mouse = {
   pressed: 0
 };
 var pressedKeys = {};
+var paused = false;
 
 // Objects
 var currentMaker = null;
@@ -129,7 +130,7 @@ function initGame() {
 
 	function documentMouseUpHandler(event) {
 		mouse.pressed = false;
-    console.log(mouse.x, mouse.y)
+    console.log(mouse.x, mouse.y);
 	}
 
 	function documentKeyDownHandler(event) {
@@ -159,10 +160,10 @@ function initMenus() {
   menuContext.fillRect(20, 340, 160, 1);
   
   drawMenu();
-  enableMaker(1)
-  enableMaker(2)
-  enableMaker(3)
-  enableMaker(4)
+  enableMaker(1);
+  enableMaker(2);
+  enableMaker(3);
+  enableMaker(4);
 }
 
 function enableMaker(id) {
@@ -198,7 +199,7 @@ function enableMaker(id) {
   function drawKeyButton(x, y, key) {
     menuContext.font = '14px Consolas, monaco, monospace';
     menuContext.textAlign = "center";  
-    menuContext.strokeStyle = "#fff"
+    menuContext.strokeStyle = "#fff";
     menuContext.beginPath();
     menuContext.rect(x, y, 26, 26);
     menuContext.stroke();
@@ -239,43 +240,56 @@ function drawMenu() {
  */
 function animate() {
 	// Clear the canvas of all old pixel data
-	context.clearRect(0, 0, canvas.width, canvas.height);
-
-  for (var i = peeps.length - 1; i >= 0; i--) {
-    peeps[i].updatePosition();
-    peeps[i].draw();
-    if (peeps[i].dead) {
-      peeps.splice(i, 1);
-    }
-  }
-  
-  if (peepPopulation > peeps.length) {
+	
+  if (pressedKeys[80] || pressedKeys[32]){
     withLock(function() {
-      setTimeout(function() { peeps.push(new Peep()); }, 400 + Math.random() * 800);
-    }, 2000, "peep-born");
+      paused = !paused;
+    }, 200, 'just waiting', this);
   }
-
-  selectMaker();
-
-  if (currentMaker) {
-    currentMaker.updatePosition();
-    currentMaker.draw();
-  }
+  if (!paused){
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    for (var i = peeps.length - 1; i >= 0; i--) {
+      peeps[i].updatePosition();
+      peeps[i].draw();
+      if (peeps[i].dead) {
+        peeps.splice(i, 1);
+      }
+     }
   
-  if (log) {
-    log.updatePosition();
-    log.draw();    
-  }
-
-  // Particles
-  for (var i = particles.length - 1; i >= 0; i--) {
-    particles[i].updatePosition();
-    particles[i].draw();
-    if (particles[i].dead || outOfWorld(particles[i])) {
-      particles.splice(i, 1);
+    if (peepPopulation > peeps.length) {
+      withLock(function() {
+        setTimeout(function() { peeps.push(new Peep()); }, 400 + Math.random() * 800);
+      }, 2000, "peep-born");
     }
+
+    selectMaker();
+
+    if (currentMaker) {
+      currentMaker.updatePosition();
+      currentMaker.draw();
+    }
+  
+    if (log) {
+      log.updatePosition();
+      log.draw();    
+    }
+
+    // Particles
+    for (var i = particles.length - 1; i >= 0; i--) {
+      particles[i].updatePosition();
+      particles[i].draw();
+      if (particles[i].dead || outOfWorld(particles[i])) {
+        particles.splice(i, 1);
+      }
+    }
+    //console.log("x:" + mouse.x + " y:" + mouse.y);  
   }
-  //console.log("x:" + mouse.x + " y:" + mouse.y);
+  else {
+    context.font = '16px Consolas, monaco, monospace';
+    context.fillStyle = "#ccc";
+    context.textAlign = "center";
+    context.fillText("Paused", 320, 240);
+  }
   requestAnimFrame(animate);
 }
 

@@ -813,14 +813,13 @@ AirMaker.prototype.updatePosition = function() {
    	  var shootPoint = new Point(mouse.x, mouse.y);
       var length = shootPoint.distanceTo(this.pressOrigin);	
       this.mousePressStarted = false;
-      this.shoot(-0.13 + (0.02 * length/100), shootPoint);
+      this.shoot(-0.13 + (0.0002 * length), shootPoint);
     }
   }
 
 };
 AirMaker.prototype.shoot = function(life, shootPoint) {
-  console.log("life:" + life);
-  for(var i = 0; i < 20 ; i++){
+  for(var i = 0; i < 40 ; i++){
 
     var airP = new AirParticle(this.pressOrigin.x, this.pressOrigin.y,
                                 (shootPoint.x - this.pressOrigin.x) * (Math.floor(Math.random()*5) + 1) * 0.02 ,

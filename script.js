@@ -60,7 +60,7 @@ var game = {
   lives: 3,
   loseLife: function() { 
     game.lives--; 
-    if (game.lives <= 0) lose();
+    if (game.lives <= 0) game.lose();
   },
   score: 0,
   addScore: function(a) { 
@@ -81,26 +81,40 @@ game.checkScore = function() {
 game.stage1 = function() {
   peepTutor = new Peep(world.width / 2 - 25, world.height / 2 - 25, 50, -1);
   peepTutor.autoNeed = false;
+  peepTutor.autoWalk = false;
   peeps.push(peepTutor);
   peepPopulation = 1;
   
-  setTimeout(function() { peepTutor.setNeed(1, 8); }, 3000);
+  setTimeout(function() { peepTutor.setNeed(1, 8); enableMaker(1);}, 3000);
 };
 
 game.stage2 = function() {
   setTimeout(function() {
     log = new Log(peepTutor.x - 80, peepTutor.y + 38);
-    setTimeout(function() { peepTutor.setNeed(2, 8); }, 2000);
+    setTimeout(function() { peepTutor.setNeed(2, 8); enableMaker(2);}, 2000);
   }, 5000);
 };
 
 game.stage3 = function() {
   peepTutor.autoNeed = true;
+  peepTutor.autoWalk = true;
   peepPopulation = 2;
+  enableMaker(3);
 };
 
-game.stage4 = function() { peepPopulation = 5; };
+game.stage4 = function() { peepPopulation = 5; enableMaker(4);};
 game.stage5 = function() { peepPopulation = 10; };
+
+function reset() {
+  peeps = [];
+  peepPopulation = 0;
+  peepTutor = null;
+  log = null;
+  particles = [];
+  shaking = false;
+  game.lives = 3;
+  game.score = 0;
+}
 
 function initGame() {
   canvas = document.getElementById("world");
@@ -336,10 +350,10 @@ function Peep(x, y, s, d) {
   this.health = 255;
   
   this.v = {x: 0, y: 0, max: 20};
-  this.w = {x: 0, y: 0};
+  this.w = {x: 0, y: 0, stopping: false};
+  this.autoWalk = true;
   this.walkNudge = 0;
   this.walkNudgePeriod = Math.round(5 + Math.random() * 5);
-  this.walk();
   
   this.eyeWidth = this.size/4;
   this.blinking = true;
@@ -385,7 +399,7 @@ Peep.prototype.updatePosition = function() {
   if (this.y < 0) { this.v.y = Math.abs(this.v.y); }
   if (this.y > world.height - this.size) { this.v.y = -Math.abs(this.v.y); }
   
-  // Shaky shaky~
+  // Shaky shaky
   if (shaking) {
     this.blinking = true;
     this.w.x = 0;
@@ -398,7 +412,7 @@ Peep.prototype.updatePosition = function() {
     this.blinking = true;
     var q = Math.max(this.burningHealth - this.flames.length, 0);
     while(q--) { this.flames.push(new FireParticle(this.x + this.size/2, this.y, 3 + Math.random() * 2)); }
-    withLock(this.hurt, 500, 'huting', this);
+    withLock(this.hurt, 500, 'hurting', this);
   }
   for (var i = this.flames.length - 1; i >= 0; i--) {
     this.flames[i].updatePosition();
@@ -406,12 +420,25 @@ Peep.prototype.updatePosition = function() {
   }
   
   // Walking
-  if (this.burningHealth <= 0) {
-    if (this.w.x > 1) { this.w.x *= 0.8; }
-    else { this.w.x = 0; }
+  withLock(this.walk, 150, 'walking', this);
+  
+  if (this.autoWalk && this.w.x === 0) {
+    withLock(function() {
+      this.w.x = (Math.random() < 0.3) ? (3 + Math.random() * 3) : 0;
+    }, 10000, 'start-walk', this);
   }
   
-  withLock(this.walk, 150, 'walking', this);
+  if (this.autoWalk && this.w.x > 0 && this.burningHealth <= 0) {
+    withLock(function() {
+      this.w.stopping = (Math.random() < 0.3);
+    }, 5000, 'stop-walk', this);
+  }
+  
+  if (this.w.stopping) {
+    if (this.w.x > 1) { this.w.x *= 0.8; }
+    else { this.w.x = 0; this.w.stopping = false; }
+  }
+  
     
   // Final movement
   this.x += this.v.x;
@@ -473,13 +500,13 @@ Peep.prototype.walk = function() {
 
 Peep.prototype.water = function() {
   this.blinking = true;
-  this.burningHealth = Math.max(0, this.burningHealth-1);
+  this.fireOut();
   this.fulfilNeed(1);
 }
 
 Peep.prototype.setNeed = function(id, health) {
   if (this.need > 0) return;
-  this.need = id || Math.floor(Math.random() * 2); // 1 or 2
+  this.need = id || Math.ceil(Math.random() * 2); // 1 or 2
   this.needCounter = health || 8;
 }
 
@@ -496,6 +523,12 @@ Peep.prototype.fire = function() {
   this.burningHealth = Math.min(10, this.burningHealth + 1);
   this.w.x = Math.min(15, this.w.x + 5);
   this.fulfilNeed(2);
+}
+
+Peep.prototype.fireOut = function() {
+  // If we are about to be put out, stop running
+  if (this.burningHealth === 1) this.w.stopping = true;
+  this.burningHealth = Math.max(0, this.burningHealth-1);
 }
 
 Peep.prototype.warmth = function() {
@@ -995,6 +1028,7 @@ window.requestAnimFrame = (function(){
           };
 })();
 
+reset();
 initGame();
 initMenus();
 game.stage1();

@@ -286,7 +286,7 @@ function animate() {
       particles.splice(i, 1);
     }
   }
-
+  //console.log("x:" + mouse.x + " y:" + mouse.y);
   requestAnimFrame(animate);
 }
 
@@ -382,7 +382,7 @@ Peep.prototype.updatePosition = function() {
   if (this.y < 0) { this.v.y = Math.abs(this.v.y); }
   if (this.y > world.height - this.size) { this.v.y = -Math.abs(this.v.y); }
   
-  // Shaky shaky
+  // Shaky shaky~
   if (shaking) {
     this.blinking = true;
     this.w.x = 0;
@@ -790,47 +790,59 @@ function AirMaker() {
   this.x = 4;
   this.y = 4;
   this.size = 1;
-  this.readyToShoot = false;
+  this.pressOrigin = null;
+  this.mousePressStarted = false;
 }
 AirMaker.prototype = new Point();
 AirMaker.prototype.draw = function() {
   context.fillStyle = "#5BDBE0";
   context.fillRect(this.x, this.y, 1, 1);
+  //just for  
+  /*
+  if (this.mousePressStarted){
+    context.strokeStyle="blue";
+    context.lineWidth = 2;
+    context.beginPath();
+    context.moveTo(this.pressOrigin.x, this.pressOrigin.y);
+    context.lineTo(mouse.x, mouse.y);
+    context.stroke();
+  }*/
 };
 AirMaker.prototype.updatePosition = function() {
   this.x = mouse.x;
   this.y = mouse.y;
 
   if (mouse.pressed) {
-    this.readyToShoot = true;
+    if (!this.mousePressStarted){
+      this.pressOrigin = new Point(mouse.x, mouse.y);
+      this.mousePressStarted = true;
+    }
   }
 
   if (!mouse.pressed) {
-    if (this.readyToShoot) {
-      this.shoot();
+    if (this.mousePressStarted) { 
+   	  var shootPoint = new Point(mouse.x, mouse.y);
+      var length = shootPoint.distanceTo(this.pressOrigin);	
+      this.mousePressStarted = false;
+      this.shoot(-0.13 + (0.0002 * length), shootPoint);
     }
-    this.readyToShoot = false;
   }
 
 };
-AirMaker.prototype.shoot = function() {
-  for(var i = 0; i < 20 ; i++){
-    var prefixz = [1, 1];
-    for (var j = 0; j < prefixz.length; j++){
-      if (Math.random() > 0.5) { prefixz[j] = -1; }
-    }
+AirMaker.prototype.shoot = function(life, shootPoint) {
+  for(var i = 0; i < 40 ; i++){
 
-    var airP = new AirParticle(mouse.x, mouse.y,
-                                prefixz[0] * Math.random() * 5,
-                                prefixz[1] * Math.random() * 5, -0.05);
+    var airP = new AirParticle(this.pressOrigin.x, this.pressOrigin.y,
+                                (shootPoint.x - this.pressOrigin.x) * (Math.floor(Math.random()*5) + 1) * 0.02 ,
+                                (shootPoint.y - this.pressOrigin.y) * (Math.floor(Math.random()*5) + 1) * 0.02 , life);
     particles.push(airP);
   }
 };
 
 AirMaker.prototype.sound = function(t) {
-  var f1 = Math.round(mouse.x/10)*10;
-  var f2 = Math.round(mouse.y/10)*10;
-  return 0.2 * Math.sin(f1 * t * Math.PI * 2) + 0.2 * Math.sin(f2 * t * Math.PI * 2);
+  //var f1 = Math.round(mouse.x/10)*10;
+  //var f2 = Math.round(mouse.y/10)*10;
+  //return 0.2 * Math.sin(f1 * t * Math.PI * 2) + 0.2 * Math.sin(f2 * t * Math.PI * 2);
 };
 
 function AirParticle(x, y, movX, movY, alphaDelta){
@@ -841,19 +853,22 @@ function AirParticle(x, y, movX, movY, alphaDelta){
   this.size = 3;
   this.movementX = movX;
   this.movementY = movY;
+  this.dead = false;
 }
 AirParticle.prototype = new Point();
 AirParticle.prototype.draw = function() {
   context.fillStyle = "rgba(63, 220, 214, " + this.alpha + ")";
   this.alpha += this.alphaDelta;
   context.fillRect(this.x, this.y, this.size, this.size);
+  if (this.alpha < 0 ) this.dead = true;
 };
 AirParticle.prototype.updatePosition = function() {
   this.x += this.movementX;
   this.y += this.movementY;
 };
-AirParticle.prototype.collide = function() {
-  //prazan sam
+AirParticle.prototype.collide = function(obj) {
+  obj.v.x += this.movementX * -0.001/this.alphaDelta;
+  obj.v.y += this.movementY * -0.001/this.alphaDelta;
 };
 
 

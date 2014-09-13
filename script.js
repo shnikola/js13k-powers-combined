@@ -57,18 +57,15 @@ var shaking = false;
 var frenzy = {enabled: false, running: false};
 
 var game = {
+  ended: false,
   paused: false,
   lives: 3,
   loseLife: function() { 
     game.lives--; 
-    if (game.lives <= 0) game.lose();
   },
   score: 0,
   addScore: function(a) { 
     game.score += a; game.checkScore();
-  },
-  lose: function() {
-    
   }
 };
 
@@ -86,19 +83,27 @@ game.stage1 = function() {
   peeps.push(peepTutor);
   peepPopulation = 1;
   
-  setTimeout(function() { peepTutor.setNeed(1, 8); enableMaker(1);}, 3000);
+  setTimeout(function() { 
+    peepTutor.setNeed(1, 8);
+  }, 3000);
+  
+  setTimeout(function() { 
+    enableMaker(1);
+    currentMaker = new WaterMaker();
+    selectMakerMenu(1);
+  }, 5000);
+  
 };
 
 game.stage2 = function() {
   setTimeout(function() {
-    log = new Log(peepTutor.x - 80, peepTutor.y + 38);
+    log = new Log(peepTutor.x, peepTutor.y);
     setTimeout(function() { peepTutor.setNeed(2, 8); enableMaker(2);}, 2000);
   }, 5000);
 };
 
 game.stage3 = function() {
   peepTutor.autoNeed = true;
-  peepTutor.autoWalk = true;
   peepPopulation = 2;
   enableMaker(3);
 };
@@ -114,6 +119,11 @@ game.stage5 = function() {
 };
 
 function reset() {
+  currentMaker = null;
+  makers[0].enabled = false
+  makers[1].enabled = false
+  makers[2].enabled = false
+  makers[3].enabled = false
   peeps = [];
   peepPopulation = 0;
   peepTutor = null;
@@ -122,6 +132,7 @@ function reset() {
   shaking = false;
   frenzy.enabled = false;
   frenzy.running = false;
+  game.ended = false;
   game.paused = false;
   game.lives = 3;
   game.score = 0;
@@ -155,7 +166,6 @@ function initGame() {
 
 	function documentMouseUpHandler(event) {
 		mouse.pressed = false;
-    console.log(mouse.x, mouse.y);
 	}
 
 	function documentKeyDownHandler(event) {
@@ -171,6 +181,8 @@ function initGame() {
     world.x = rect.left;
     world.y = rect.top;    
   }
+  
+  animate();
 }
 
 function initMenus() {
@@ -183,12 +195,14 @@ function initMenus() {
   menuContext.fillStyle = "#fff";
   menuContext.fillRect(20, 70, 160, 1);
   menuContext.fillRect(20, 340, 160, 1);
+  menuContext.fillRect(20, 385, 160, 1);
+  
+  menuContext.font = '16px Consolas, monaco, monospace';
+  menuContext.textAlign = "left";
+  menuContext.fillText("M: Mute", 20, 420);
+  menuContext.fillText("P: Pause", 20, 440);
   
   drawMenu();
-  enableMaker(1);
-  enableMaker(2);
-  enableMaker(3);
-  enableMaker(4);
 }
 
 function enableMaker(id) {
@@ -249,12 +263,12 @@ function drawMenu() {
     menuContext.fillRect(45 + 45*i, 30, 20, 20);
   }
   
-	menuContext.clearRect(0, 380, 200, 25);
+	menuContext.clearRect(0, 350, 200, 30);
   
   menuContext.fillStyle = "#fff";
   menuContext.textAlign = "center";
   menuContext.font = '20px Consolas, monaco, monospace';
-  menuContext.fillText(game.score, 100, 400);
+  menuContext.fillText(game.score, 100, 370);
   
   requestAnimFrame(drawMenu);
 }
@@ -264,19 +278,31 @@ function drawMenu() {
  * and render the current state to the canvas.
  */
 function animate() {
-	// Clear the canvas of all old pixel data
-	
-  if (pressedKeys[80] || pressedKeys[32]) {
-    withLock(pause, 200, 'pause-pressed');
-  }
-  
-  if (game.paused) {
+  if (game.lives <= 0 && !game.ended) {
+    endGame()
     requestAnimFrame(animate);
     return;
   }
   
-  context.clearRect(0, 0, canvas.width, canvas.height);
+  if (game.ended && pressedKeys[32]) {
+    withLock(restart, 200, 'restart-pressed');
+  }
+
+  if (pressedKeys[77]) {
+    withLock(audio.toggle, 200, 'mute-pressed');
+  }
+	
+  if (pressedKeys[80]) {
+    withLock(pause, 200, 'pause-pressed');
+  }
   
+  if (game.paused || game.ended) {
+    requestAnimFrame(animate);
+    return;
+  }
+  
+	// Clear the canvas of all old pixel data
+  context.clearRect(0, 0, canvas.width, canvas.height);
   
   if (frenzy.enabled) {
     withLock(function() { if (Math.random() < 0.3) runFrenzy(); }, 30000, 'pause-pressed');
@@ -330,13 +356,29 @@ function animate() {
 function pause() {
   game.paused = !game.paused;
   if (game.paused) {
+    audio.mute();
     context.fillStyle = "rgba(0, 0, 0, 0.5)"
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.font = '16px Consolas, monaco, monospace';
     context.fillStyle = "#ccc";
     context.textAlign = "center";
-    context.fillText("Paused", 320, 240);
+    context.fillText("Paused", 320, 200);
+  } else {
+    audio.resume();
   }
+}
+
+function endGame() {
+  game.ended = true;
+  audio.mute();
+  context.fillStyle = "rgba(0, 0, 0, 0.8)"
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.font = '20px Consolas, monaco, monospace';
+  context.fillStyle = "#ccc";
+  context.textAlign = "center";
+  context.fillText("Three Peeps down - you're out!", 320, 120);
+  context.fillText("Total happiness achieved: " + game.score, 320, 160);
+  context.fillText("Press SPACE to restart", 320, 400);
 }
 
 function selectMaker() {
@@ -344,7 +386,7 @@ function selectMaker() {
     if (makers[i].enabled && pressedKeys[makers[i].key]) {
       withLock(function() { 
         currentMaker = new makers[i].constructor();
-        selectMakerMenu(i + 1)
+        selectMakerMenu(i + 1);
       }, 500, "maker-switch");
       break;
     }
@@ -511,12 +553,16 @@ Peep.prototype.draw = function() {
 };
 
 Peep.prototype.drawNeed = function() {
+  var upper = (this.y - 15 > 0);
   var bubbleSize = 18;
   var bubbleX = this.x + this.size/2 - bubbleSize/2;
-  var bubbleY = this.y - 10;
+  var bubbleY = upper ? this.y - 10 : this.y + this.size + 10 + bubbleSize;
   context.fillStyle = "rgba(255, 255, 255, 0.3)";
   context.fillRect(bubbleX, bubbleY, bubbleSize, -bubbleSize);
-  context.fillRect(this.x + this.size/2 - 1, bubbleY + 2, 4, 4);
+  var sBubbleSize = 4;
+  var sBubbleX = this.x + this.size/2 - 1;
+  var sBubbleY = upper ? (bubbleY + 2) : (bubbleY - bubbleSize - 2 - sBubbleSize);
+  context.fillRect(sBubbleX, sBubbleY, sBubbleSize, sBubbleSize);
   var dropSize = this.needCounter;
   var dropX = this.x + this.size/2 - dropSize/2;
   var dropY = bubbleY - 3;
@@ -586,8 +632,8 @@ Peep.prototype.hurt = function() {
 }
 
 function Log(x, y) {
-  this.x = x;
-  this.y = y;
+  this.x = (x - 80 > 0) ? x-80 : x+80;
+  this.y = y + 38;
   this.size = 50;
   this.width = 50;
   this.height = 12;
@@ -641,7 +687,7 @@ Log.prototype.updatePosition = function() {
 Log.prototype.draw = function() {
   context.fillStyle = "#793f1d";
   context.fillRect(this.x, this.y, this.width, this.height);
-  context.fillRect(this.x + this.width/4, this.y, 8, -8);
+  context.fillRect(this.x + this.width/4, this.y + 2, 8, -10);
   for (var i = this.flames.length - 1; i >= 0; i--) {
     this.flames[i].draw();
   }
@@ -916,9 +962,13 @@ AirMaker.prototype.shoot = function(life, shootPoint) {
 };
 
 AirMaker.prototype.sound = function(t) {
-  //var f1 = Math.round(mouse.x/10)*10;
-  //var f2 = Math.round(mouse.y/10)*10;
-  //return 0.2 * Math.sin(f1 * t * Math.PI * 2) + 0.2 * Math.sin(f2 * t * Math.PI * 2);
+  if (this.mousePressStarted) {
+    var f1 = Math.round(mouse.x/10)*10;
+    var f2 = Math.round(mouse.y/10)*10;
+    return 0.2 * Math.sin(f1 * t * Math.PI * 2) + 0.2 * Math.sin(f2 * t * Math.PI * 2);
+  } else {
+    return 0;
+  }
 };
 
 function AirParticle(x, y, movX, movY, alphaDelta){
@@ -1020,26 +1070,40 @@ EarthMaker.prototype.sound = function(t) {
 // ================ AUDIO ================
 
 var actx = new (window.AudioContext || window.webkitAudioContext)();
-var audioNodes = {
+var audio = {
   src:  actx.createScriptProcessor(4096, 0, 1),
   vol: actx.createGain(),
-  dest: actx.destination
-};
-audioNodes.src.onaudioprocess = function(e) {
-  if (!currentMaker || !currentMaker.sound) return;
-  var ob = e.outputBuffer;
-  for (var c = 0; c < ob.numberOfChannels; c++) {
-    var od = ob.getChannelData(c);
-    for (var s = 0; s < ob.length; s++) {
-      od[s] = currentMaker.sound(actx.currentTime + ob.duration * s / ob.length) || 0;
-    }
+  dest: actx.destination,
+  prevVol: 1,
+  mute: function() { 
+    audio.prevVol = audio.vol.gain.value;
+    audio.vol.gain.value = 0;
+  },
+  resume: function() {
+    audio.vol.gain.value = audio.prevVol;
+  },
+  toggle: function() {
+    audio.vol.gain.value = 1 - audio.vol.gain.value;
   }
 };
 
-audioNodes.vol.gain.value = 1; // Change for sound
-audioNodes.src.connect(audioNodes.vol);
-audioNodes.vol.connect(audioNodes.dest);
+function initAudio() {
 
+  audio.src.onaudioprocess = function(e) {
+    if (!currentMaker || !currentMaker.sound) return;
+    var ob = e.outputBuffer;
+    for (var c = 0; c < ob.numberOfChannels; c++) {
+      var od = ob.getChannelData(c);
+      for (var s = 0; s < ob.length; s++) {
+        od[s] = currentMaker.sound(actx.currentTime + ob.duration * s / ob.length) || 0;
+      }
+    }
+  };
+
+  audio.vol.gain.value = 1; // Change for sound
+  audio.src.connect(audio.vol);
+  audio.vol.connect(audio.dest);
+}
 
 
 function withLock(func, ms, key, that) {
@@ -1069,7 +1133,12 @@ window.requestAnimFrame = (function(){
 })();
 
 reset();
+initAudio();
 initGame();
 initMenus();
 game.stage1();
-animate();
+
+function restart() {
+  reset();
+  game.stage1();
+}

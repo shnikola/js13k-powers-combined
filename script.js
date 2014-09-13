@@ -59,7 +59,7 @@ var game = {
   lives: 3,
   loseLife: function() { 
     game.lives--; 
-    if (game.lives <= 0) lose();
+    if (game.lives <= 0) game.lose();
   },
   score: 0,
   addScore: function(a) { 
@@ -100,6 +100,17 @@ game.stage3 = function() {
 
 game.stage4 = function() { peepPopulation = 5; };
 game.stage5 = function() { peepPopulation = 10; };
+
+function reset() {
+  peeps = [];
+  peepPopulation = 0;
+  peepTutor = null;
+  log = null;
+  particles = [];
+  shaking = false;
+  game.lives = 3;
+  game.score = 0;
+}
 
 function initGame() {
   canvas = document.getElementById("world");
@@ -465,7 +476,7 @@ Peep.prototype.water = function() {
 
 Peep.prototype.setNeed = function(id, health) {
   if (this.need > 0) return;
-  this.need = id || Math.floor(Math.random() * 2); // 1 or 2
+  this.need = id || Math.ceil(Math.random() * 2); // 1 or 2
   this.needCounter = health || 8;
 }
 
@@ -966,6 +977,7 @@ window.requestAnimFrame = (function(){
           };
 })();
 
+reset();
 initGame();
 initMenus();
 game.stage1();

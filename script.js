@@ -37,7 +37,6 @@ var mouse = {
   pressed: 0
 };
 var pressedKeys = {};
-var paused = false;
 
 // Objects
 var currentMaker = null;
@@ -55,8 +54,10 @@ var log = null;
 var particles = [];
 
 var shaking = false;
+var frenzy = {enabled: false, running: false};
 
 var game = {
+  paused: false,
   lives: 3,
   loseLife: function() { 
     game.lives--; 
@@ -102,8 +103,15 @@ game.stage3 = function() {
   enableMaker(3);
 };
 
-game.stage4 = function() { peepPopulation = 5; enableMaker(4);};
-game.stage5 = function() { peepPopulation = 10; };
+game.stage4 = function() { 
+  peepPopulation = 5; 
+  enableMaker(4);
+};
+
+game.stage5 = function() { 
+  peepPopulation = 10; 
+  frenzy.enabled = true;
+};
 
 function reset() {
   peeps = [];
@@ -112,6 +120,9 @@ function reset() {
   log = null;
   particles = [];
   shaking = false;
+  frenzy.enabled = false;
+  frenzy.running = false;
+  game.paused = false;
   game.lives = 3;
   game.score = 0;
 }
@@ -259,12 +270,25 @@ function animate() {
     withLock(pause, 200, 'pause-pressed');
   }
   
-  if (paused) {
+  if (game.paused) {
     requestAnimFrame(animate);
     return;
   }
   
   context.clearRect(0, 0, canvas.width, canvas.height);
+  
+  
+  if (frenzy.enabled) {
+    withLock(function() { if (Math.random() < 0.3) runFrenzy(); }, 30000, 'pause-pressed');
+  }
+  
+  if (frenzy.running) {
+    context.font = '20px Consolas, monaco, monospace';
+    context.fillStyle = "#fff";
+    context.textAlign = "center";
+    context.fillText("MORNING EXERCISE!", 320, 50);
+  }
+  
   for (var i = peeps.length - 1; i >= 0; i--) {
     peeps[i].updatePosition();
     peeps[i].draw();
@@ -304,8 +328,8 @@ function animate() {
 }
 
 function pause() {
-  paused = !paused;
-  if (paused) {
+  game.paused = !game.paused;
+  if (game.paused) {
     context.fillStyle = "rgba(0, 0, 0, 0.5)"
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.font = '16px Consolas, monaco, monospace';
@@ -325,6 +349,14 @@ function selectMaker() {
       break;
     }
   }
+}
+
+function runFrenzy() {
+  frenzy.running = true;
+  for (var i = peeps.length - 1; i >= 0; i--) {
+    peeps[i].w.x = 15 + Math.random() * 15;
+  }
+  setTimeout(function() { frenzy.running = false; }, 5000);
 }
 
 // Basic point
@@ -438,8 +470,8 @@ Peep.prototype.updatePosition = function() {
   
   if (this.autoWalk && this.w.x > 0 && this.burningHealth <= 0) {
     withLock(function() {
-      this.w.stopping = (Math.random() < 0.3);
-    }, 5000, 'stop-walk', this);
+      this.w.stopping = (Math.random() < 0.2);
+    }, 10000, 'stop-walk', this);
   }
   
   if (this.w.stopping) {

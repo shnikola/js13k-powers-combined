@@ -47,8 +47,10 @@ var makers = [
   { enabled: false, key: 52, color: "#552616", constructor: EarthMaker}
 ];
 
-var log = null;
 var peeps = [];
+var peepPopulation = 0;
+var peepTutor = null;
+var log = null;
 var particles = [];
 
 var shaking = false;
@@ -60,35 +62,44 @@ var game = {
     if (game.lives <= 0) lose();
   },
   score: 0,
-  addScore: function(a) { game.score += a; game.checkScore();},
-  checkScore: function() {
-    if (game.score === 1) { game.stage2(); } 
-    else if (game.score === 2) { game.stage3(); } 
-    else if (game.score === 4) { game.stage4(); } 
-  },
-  stage1: function() {
-    var p = new Peep(world.width / 2 - 25, world.height / 2 - 25, 50, -1);
-    peeps.push(p)
-    setTimeout(function() { 
-      p.need = 1; 
-      p.needCounter = 8; 
-      enableMaker(1);
-    }, 3000);
-  },
-  stage2: function() {
-    setTimeout(function() {
-      log = new Log(peeps[0].x - 80, peeps[0].y + 38);
-      setTimeout(function() { peeps[0].need = 2; peeps[0].needCounter = 8; }, 2000);
-    }, 5000);
-  },
-  stage3: function() {
-  },
-  stage4: function() {
+  addScore: function(a) { 
+    game.score += a; game.checkScore();
   },
   lose: function() {
     
   }
 };
+
+game.checkScore = function() {
+  if (game.score === 1) { game.stage2(); } 
+  else if (game.score === 2) { game.stage3(); } 
+  else if (game.score === 5) { game.stage4(); } 
+  else if (game.score === 10) { game.stage5(); } 
+};
+
+game.stage1 = function() {
+  peepTutor = new Peep(world.width / 2 - 25, world.height / 2 - 25, 50, -1);
+  peepTutor.autoNeed = false;
+  peeps.push(peepTutor);
+  peepPopulation = 1;
+  
+  setTimeout(function() { peepTutor.setNeed(1, 8); }, 3000);
+};
+
+game.stage2 = function() {
+  setTimeout(function() {
+    log = new Log(peepTutor.x - 80, peepTutor.y + 38);
+    setTimeout(function() { peepTutor.setNeed(2, 8); }, 2000);
+  }, 5000);
+};
+
+game.stage3 = function() {
+  peepTutor.autoNeed = true;
+  peepPopulation = 2;
+};
+
+game.stage4 = function() { peepPopulation = 5; };
+game.stage5 = function() { peepPopulation = 10; };
 
 function initGame() {
   canvas = document.getElementById("world");
@@ -134,10 +145,6 @@ function initGame() {
     world.x = rect.left;
     world.y = rect.top;    
   }
-  
-
-  game.stage1();
-  animate();
 }
 
 function initMenus() {
@@ -155,7 +162,7 @@ function initMenus() {
   enableMaker(1)
   enableMaker(2)
   enableMaker(3)
-    enableMaker(4)
+  enableMaker(4)
 }
 
 function enableMaker(id) {
@@ -226,22 +233,6 @@ function drawMenu() {
   requestAnimFrame(drawMenu);
 }
 
-
-// TODO: bolji raspored
-
-function populate() {
-  for (var i = 50; i < world.height - 100; i+=world.height / 5) {
-    for (var j = 50; j < world.width - 100; j+= world.width / 4) {
-      if (Math.random() < 0.2) continue;
-      var x = j + 70 * Math.random();
-      var y = i + 70 * Math.random();
-      var s = 20 + Math.random() * 45;
-      var p = new Peep(x, y, s);
-      peeps.push(p);
-    }
-  }
-}
-
 /**
  * Called on every frame to update the game properties
  * and render the current state to the canvas.
@@ -256,6 +247,12 @@ function animate() {
     if (peeps[i].dead) {
       peeps.splice(i, 1);
     }
+  }
+  
+  if (peepPopulation > peeps.length) {
+    withLock(function() {
+      setTimeout(function() { peeps.push(new Peep()); }, 400 + Math.random() * 800);
+    }, 2000, "peep-born");
   }
 
   selectMaker();
@@ -288,7 +285,7 @@ function selectMaker() {
       withLock(function() { 
         currentMaker = new makers[i].constructor();
         selectMakerMenu(i + 1)
-      }, 500, "maker-switch", window);
+      }, 500, "maker-switch");
       break;
     }
   }
@@ -317,13 +314,14 @@ Point.prototype.collidesWith = function(o) {
 // ================ PEEPS ================
 
 function Peep(x, y, s, d) {
-  this.x = x;
-  this.y = y;
-  this.v = {x: 0, y: 0, max: 20};
-  this.size = s || 10;
+  this.x = x || (100 + Math.random() * (world.width - 200));
+  this.y = y || (100 + Math.random() * (world.height - 200)); 
+  this.size = s || (20 + Math.random() * 40);
+  this.direction = d || (Math.random() > 0.5 ? -1 : 1);
+  
   this.health = 255;
   
-  this.direction = d || (Math.random() > 0.5 ? -1 : 1);
+  this.v = {x: 0, y: 0, max: 20};
   this.w = {x: 0, y: 0};
   this.walkNudge = 0;
   this.walkNudgePeriod = Math.round(5 + Math.random() * 5);
@@ -333,6 +331,7 @@ function Peep(x, y, s, d) {
   this.blinking = true;
   this.blink();
   
+  this.autoNeed = true;
   this.need = null;
   this.needCounter = 0;
   
@@ -342,6 +341,12 @@ function Peep(x, y, s, d) {
 Peep.prototype = new Point();
 
 Peep.prototype.updatePosition = function() {
+  
+  // Neediness
+  if (this.autoNeed && !this.need) {
+    this.need = -1; // Rezerviramo postavljanje needa, ali ga ne crtamo još
+    setTimeout(this.setNeed.bind(this), 1000 + Math.random() * 1000); 
+  }
   
   // Collision with particles
   for (var i = particles.length - 1; i >= 0; i--) {
@@ -418,7 +423,7 @@ Peep.prototype.draw = function() {
     // TODO: open mouth
     //context.fillRect(eyeX, this.y + this.size -2 , this.direction * (this.eyeWidth - 4) , -10);
   }
-  if (this.need) this.drawNeed();
+  if (this.need && this.need > 0) this.drawNeed();
   for (var i = this.flames.length - 1; i >= 0; i--) {
     this.flames[i].draw();
   }
@@ -434,13 +439,8 @@ Peep.prototype.drawNeed = function() {
   var dropSize = this.needCounter;
   var dropX = this.x + this.size/2 - dropSize/2;
   var dropY = bubbleY - 3;
-  context.fillStyle = this.needColor();
+  context.fillStyle = makers[this.need - 1].color;
   context.fillRect(dropX, dropY, dropSize, -dropSize);
-};
-
-Peep.prototype.needColor = function() {
-  if      (this.need === 1) return "#2076f5";
-  else if (this.need === 2) return "#f64f0a";
 };
 
 Peep.prototype.blink = function() {
@@ -461,9 +461,12 @@ Peep.prototype.water = function() {
   this.blinking = true;
   this.burningHealth = Math.max(0, this.burningHealth-1);
   this.fulfilNeed(1);
-  //obj.color[0] = stepTo(obj.color[0], 32, 5);
-  //obj.color[1] = stepTo(obj.color[0], 118, 5);
-  //obj.color[2] = stepTo(obj.color[0], 251, 5);
+}
+
+Peep.prototype.setNeed = function(id, health) {
+  if (this.need > 0) return;
+  this.need = id || Math.floor(Math.random() * 2); // 1 or 2
+  this.needCounter = health || 8;
 }
 
 Peep.prototype.fulfilNeed = function(id) {
@@ -534,6 +537,7 @@ Log.prototype.updatePosition = function() {
       var p = new FireParticle(this.x + this.width/2 + simRand() * 20, this.y, 3 + Math.random() * 2)
       this.flames.push(p); 
     }
+    withLock(this.hurt, 2000, 'hurting', this); // die slowly
   }
   for (var i = this.flames.length - 1; i >= 0; i--) {
     this.flames[i].updatePosition();
@@ -556,13 +560,18 @@ Log.prototype.draw = function() {
   }
 }
 
-Log.prototype.water = function() {
-  // TODO: add smoke
+Log.prototype.hurt = function() {
   this.burningHealth = Math.max(0, this.burningHealth-1);
 }
 
+
+Log.prototype.water = function() {
+  // add smoke here?
+  this.hurt();
+}
+
 Log.prototype.fire = function() {
-  this.burningHealth = Math.min(30, this.burningHealth + 1);
+  this.burningHealth = Math.min(25, this.burningHealth + 1);
 }
 
 // ================ WATER ================
@@ -864,7 +873,6 @@ function EarthMaker() {
   this.recedeSpeed = 100;
 }
 EarthMaker.prototype.updatePosition = function() {
-  console.log(this.size, this.recedeSpeed);
   var nextSeq = modulo(this.sequenceIndex + 1, this.sequence.length);
   if (pressedKeys[this.sequence[this.sequenceIndex]] && !pressedKeys[this.sequence[nextSeq]]) {
     this.sequenceIndex = nextSeq;
@@ -949,6 +957,7 @@ audioNodes.vol.connect(audioNodes.dest);
 
 
 function withLock(func, ms, key, that) {
+  that = that || window;
   if (that[key + "-locked"]) return;
   func.call(that);
   that[key + "-locked"] = true;
@@ -975,3 +984,5 @@ window.requestAnimFrame = (function(){
 
 initGame();
 initMenus();
+game.stage1();
+animate();

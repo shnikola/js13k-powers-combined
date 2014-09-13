@@ -848,7 +848,6 @@ AirParticle.prototype.updatePosition = function() {
   this.y += this.movementY;
 };
 AirParticle.prototype.collide = function(obj) {
-  console.log("push:" + (-0.2/this.alphaDelta));
   obj.v.x += this.movementX * -0.001/this.alphaDelta;
   obj.v.y += this.movementY * -0.001/this.alphaDelta;
 };
